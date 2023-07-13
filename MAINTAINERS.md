@@ -1,3 +1,5 @@
 # MAINTAINERS
 
-Christopher Ferris - chrisfer@us.ibm.com
+* Felipe Lopes de Oliveira (@lipelopesoliveira)
+* Matheus Esteves (@m-estevesf)
+* Rodrigo Neumann (@neumannrf)

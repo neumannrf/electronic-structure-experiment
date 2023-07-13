@@ -1,77 +1,152 @@
-<!-- This should be the location of the title of the repository, normally the short name -->
-# repo-template
+# Electronic Structure Experiment
 
-<!-- Build Status, is a great thing to have at the top of your repository, it shows that you take your CI/CD as first class citizens -->
-<!-- [![Build Status](https://travis-ci.org/jjasghar/ibm-cloud-cli.svg?branch=master)](https://travis-ci.org/jjasghar/ibm-cloud-cli) -->
+Automated virtual experiment that uses the CP2K software package to run DFT simulations on nanoporous materials.
 
-<!-- Not always needed, but a scope helps the user understand in a short sentance like below, why this repo exists -->
-## Scope
+It expects two environmental variables to be set:
 
-The purpose of this project is to provide a template for new open source repositories.
+- `CP2K_DATA_DIR`: Path to the CP2K directory containing basis set and pseudopotential files.
+- `CHARGEMOL_DATA_FOLDER`: Path to the chargemol folder containing the atomic density files.
 
-<!-- A more detailed Usage or detailed explaination of the repository here -->
-## Usage
+## Examples
 
-This repository contains some example best practices for open source repositories:
+### DDEC partial charges calculation
 
-* [LICENSE](LICENSE)
-* [README.md](README.md)
-* [CONTRIBUTING.md](CONTRIBUTING.md)
-* [MAINTAINERS.md](MAINTAINERS.md)
-<!-- A Changelog allows you to track major changes and things that happen, https://github.com/github-changelog-generator/github-changelog-generator can help automate the process -->
-* [CHANGELOG.md](CHANGELOG.md)
+The script below shows a simple example of how to use the scripts provided in this repository to calculate the DDEC charges of a given cif file. To use it is necessary to set the `FrameworkName`, and `NProcs` variables. The script also expect to save all the output files on the same folder where the script is located. You can change it by setting the `OutputFolder` variable accordingly.
 
-> These are optional
+```bash
+#!/bin/bash
 
-<!-- The following are OPTIONAL, but strongly suggested to have in your repository. -->
-* [dco.yml](.github/dco.yml) - This enables DCO bot for you, please take a look https://github.com/probot/dco for more details.
-* [travis.yml](.travis.yml) - This is a example `.travis.yml`, please take a look https://docs.travis-ci.com/user/tutorial/ for more details.
+# Define environment variables
+export PATH=$PATH:/home/felipelopes/Simulations/electronic-density-experiment/bin/
+export EPATH=/home/felipelopes/Simulations/electronic-density-experiment/bin/
+export CP2K_DIR=/home/felipelopes/Programs/cp2k
+export CP2K_DATA_DIR=${CP2K_DIR}/data
+export CHARGEMOL_DIR=/home/felipelopes/Programs/Chargemol/
+export CHARGEMOL_DATA_FOLDER=${CHARGEMOL_DIR}/atomic_densities/
 
-These may be copied into a new or existing project to make it easier for developers not on a project team to collaborate.
+# Define specific variables
+FrameworkName='CIP-Me'
+OutputFolder=$PWD
+NProcs=4
 
-<!-- A notes section is useful for anything that isn't covered in the Usage or Scope. Like what we have below. -->
-## Notes
+# Load the CP2K setup script
+source ${CP2K_DIR}/tools/toolchain/install/setup
 
-**NOTE: While this boilerplate project uses the Apache 2.0 license, when
-establishing a new repo using this template, please use the
-license that was approved for your project.**
+# First ensure that the CIF file has all atoms explicitly defined in a P1 cell
+echo -e "\nCreating primitive P1 cell..."
+pmg structure --convert --filename ${OutputFolder}/${FrameworkName}.cif ${OutputFolder}/${FrameworkName}_prim.cif
+mv -v ${OutputFolder}/${FrameworkName}_prim.cif ${OutputFolder}/${FrameworkName}.cif
 
-**NOTE: This repository has been configured with the [DCO bot](https://github.com/probot/dco).
-When you set up a new repository that uses the Apache license, you should
-use the DCO to manage contributions. The DCO bot will help enforce that.
-Please contact one of the IBM GH Org stewards.**
+echo -e "\nCreating CP2K input file..."
+charge_density.py --FrameworkName ${FrameworkName} \
+                  --SCFGuess 'restart' \
+                  ${OutputFolder}
 
-<!-- Questions can be useful but optional, this gives you a place to say, "This is how to contact this project maintainers or create PRs -->
-If you have any questions or issues you can create a new [issue here][issues].
+export OMP_NUM_THREADS=1
+echo -e "\nRunning CP2K simulation with ${NProcs} MPI and ${OMP_NUM_THREADS} OMP process..."
+mpirun -np ${NProcs} $CP2K_DIR/exe/local/cp2k.psmp -i simulate_SCF.inp -o simulate_SCF.out
 
-Pull requests are very welcome! Make sure your patches are well tested.
-Ideally create a topic branch for every separate change you make. For
-example:
+echo -e "\nRenaming the cube file..."
+mv *-valence_density-ELECTRON_DENSITY-1_0.cube valence_density.cube
 
-1. Fork the repo
-2. Create your feature branch (`git checkout -b my-new-feature`)
-3. Commit your changes (`git commit -am 'Added some feature'`)
-4. Push to the branch (`git push origin my-new-feature`)
-5. Create new Pull Request
+# Make the number of OMP processes to ${NProcs}
+export OMP_NUM_THREADS=${NProcs}
+echo -e "\nCreating Chargemol input file..."
+chargemol.py --FrameworkName ${FrameworkName} ${OutputFolder}
 
-## License
+echo -e "\nRunning chargemol on ${OMP_NUM_THREADS} OMP processes..."
+${CHARGEMOL_DIR}/Chargemol_09_26_2017_linux_parallel
 
-All source files must include a Copyright and License header. The SPDX license header is 
-preferred because it can be easily scanned.
-
-If you would like to see the detailed LICENSE click [here](LICENSE).
-
-```text
-#
-# Copyright IBM Corp. 2020-
-# SPDX-License-Identifier: Apache2.0
-#
+echo -e "\nParsing the chargemol output file and creating the cif file with the DDEC charges..."
+parse_charges.py --FrameworkName ${FrameworkName} ${OutputFolder}
 ```
-## Authors
 
-Optionally, you may include a list of authors, though this is redundant with the built-in
-GitHub list of contributors.
+### Geometry optimization
 
-- Author: New OpenSource IBMer <new-opensource-ibmer@ibm.com>
+Below there is an example of a geometry optimization script. It is very similar to the previous one, but it uses the `structure_optimization.py` script to create the CP2K input file. It also uses the `parse_optimization.py` script to parse the CP2K output file and create a new cif file with the optimized structure.
 
-[issues]: https://github.com/IBM/repo-template/issues/new
+```bash
+#!/bin/bash
+
+# Define environment variables
+export PATH=$PATH:/home/felipelopes/Simulations/electronic-density-experiment/bin/
+export EPATH=/home/felipelopes/Simulations/electronic-density-experiment/bin/
+export CP2K_DIR=/home/felipelopes/Programs/cp2k
+export CP2K_DATA_DIR=${CP2K_DIR}/data
+export CHARGEMOL_DIR=/home/felipelopes/Programs/Chargemol/
+export CHARGEMOL_DATA_FOLDER=${CHARGEMOL_DIR}/atomic_densities/
+
+# Define specific variables
+FrameworkName='CIP-Me'
+OutputFolder=$PWD
+NumProcs=4
+
+# Load the CP2K setup script
+source ${CP2K_DIR}/tools/toolchain/install/setup
+
+# First ensure that the CIF file has all atoms explicitly defined in a P1 cell
+echo -e "\nCreating primitive P1 cell..."
+pmg structure --convert --filename ${OutputFolder}/${FrameworkName}.cif ${OutputFolder}/${FrameworkName}_prim.cif
+mv -v ${OutputFolder}/${FrameworkName}_prim.cif ${OutputFolder}/${FrameworkName}.cif
+
+echo -e "\nCreating CP2K input file..."
+structure_optimization.py --FrameworkName ${FrameworkName} \
+                          ${OutputFolder}
+
+export OMP_NUM_THREADS=1
+echo -e "\nRunning CP2K simulation with ${NumProcs} MPI and ${OMP_NUM_THREADS} OMP process..."
+mpirun -np ${NumProcs} $CP2K_DIR/exe/local/cp2k.psmp -i simulation_Optimization.inp -o simulation_Optimization.out
+
+parse_optimization.py --FrameworkName ${FrameworkName} \
+                      --SaveHistory  \
+                      ${OutputFolder}
+```
+
+### Vibrational frequencies calculation
+
+Below there is an example of a vibrational frequencies script. It is very similar to the previous one, but it uses the `raman_ir.py` script to create the CP2K input file. It also uses the `parse_vibrations.py` script to parse the CP2K output file and create a new files with the results.
+
+```bash
+#!/bin/bash
+
+# Define environment variables
+export PATH=$PATH:/home/felipelopes/Simulations/electronic-density-experiment/bin/
+export CP2K_DIR=/home/felipelopes/Programs/cp2k
+export CP2K_DATA_DIR=${CP2K_DIR}/data
+
+# Define specific variables
+FrameworkName='MgMOF74'
+OutputFolder=$PWD
+NumProcs=32
+export OMP_NUM_THREADS=1
+
+# Load the CP2K setup script
+source ${CP2K_DIR}/tools/toolchain/install/setup
+
+# First ensure that the CIF file has all atoms explicitly defined in a P1 cell
+echo -e "\nCreating primitive P1 cell..."
+pmg structure --convert --filename ${OutputFolder}/${FrameworkName}.cif ${OutputFolder}/${FrameworkName}_prim.cif
+mv -v ${OutputFolder}/${FrameworkName}_prim.cif ${OutputFolder}/${FrameworkName}.cif
+
+echo -e "\nCreating input file for CP2K Vibrations calculation..."
+raman_ir.py --FrameworkName ${FrameworkName} \
+            --MaxSCFycles 50 \
+            --ProcsPerReplica 16 \
+            --dX 0.001 \
+            --CalculateRaman \
+            --CalculateIR \
+            ${OutputFolder}
+
+echo -e "\nRunning CP2K simulation with ${NumProcs} MPI and ${OMP_NUM_THREADS} OMP process..."
+mpirun -np ${NumProcs} $CP2K_DIR/exe/local/cp2k.psmp -i simulation_Vibrations.inp -o simulation_Vibrations.out
+
+echo -e "\nCreating RASPA P1 cell input file..."
+parse_vibrations.py --FrameworkName ${FrameworkName} \
+                    --SaveVibrations  \
+                    --HalfWidth  5.0 \
+                    ${OutputFolder}
+```
+
+The `parse_vibrations.py` creates two csv files with the results. The `{FrameworkName}_RAMAN_IR_Curve.csv` that holds the Raman and/or the IR curve created by adjusting a Lorentzian function to the calculated frequencies. The `{FrameworkName}_VibrationsTable.csv` that holds the calculated frequencies and intensities. The `--HalfWidth` option defines the half width of the Lorentzian function used to create the Raman and/or IR curve.
+
+The `--SaveVibrations` option creates a folder called `Vibrations` with `AXSF` files containing the displacements of the atoms for each vibration mode. It is possible to visualize the vibrations using the [VESTA](https://jp-minerals.org/vesta/en/) software.

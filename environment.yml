@@ -1,0 +1,15 @@
+name: electronic-structure-experiment
+channels:
+  - conda-forge
+dependencies:
+  - jupyter
+  - jupyterlab
+  - numpy
+  - pandas
+  - pip
+  - python>=3.10
+  - ase
+  - gemmi
+  - pymatgen
+  - pip:
+    - cp2k-input-tools
