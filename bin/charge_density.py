@@ -33,23 +33,30 @@ parser.add_argument('--CP2KDataDir',
                     required=False,
                     metavar='CP2K_DATA_DIR',
                     help='Directory containing the Basis set and pseudopotential files.')
-parser.add_argument('--NetCharge',
+parser.add_argument('--Charge',
                     type=int,
                     default=0,
                     action='store',
                     required=False,
-                    metavar='NET_CHARGE',
-                    help='Net charge of the unit cell.')
+                    metavar='CHARGE',
+                    help='Total charge of the unit cell.')
+parser.add_argument('--Multipliticy',
+                    type=int,
+                    default=1,
+                    action='store',
+                    required=False,
+                    metavar='MULTIPLICITY',
+                    help='Total multiplicity of the unit cell.')
 parser.add_argument('--EPSDefault',
                     type=float,
-                    default=1e-7,
+                    default=1e-8,
                     action='store',
                     required=False,
                     metavar='EPS_DEFAULT',
                     help='Default value for the electronic density convergence threshold.')
 parser.add_argument('--PWCutoff',
                     type=float,
-                    default=500,
+                    default=600,
                     action='store',
                     required=False,
                     metavar='PW_CUTOFF',
@@ -68,6 +75,30 @@ parser.add_argument('--RelativeCutOff',
                     required=False,
                     metavar='RELATIVE_CUTOFF',
                     help='Relative cutoff for the multigrid method.')
+parser.add_argument('--Functional',
+                    type=str,
+                    default='PBE',
+                    action='store',
+                    required=False,
+                    choices=['PBE', 'xTB'],
+                    metavar='FUNCTIONAL',
+                    help='Functional used to calculate the total energy.')
+parser.add_argument('--DispersionCorrection',
+                    type=str,
+                    default='DFTD3',
+                    action='store',
+                    required=False,
+                    choices=['DFTD3', 'DFTD3(BJ)'],
+                    metavar='DISPERSION_CORRECTION',
+                    help='Dispersion correction used to calculate the total energy')
+parser.add_argument('--BasisSet',
+                    type=str,
+                    default='DZVP',
+                    action='store',
+                    required=False,
+                    choices=['DZVP', 'TZV2P'],
+                    metavar='BASIS_SET',
+                    help='Gaussian basis set type.')
 parser.add_argument('--MaxSCFycles',
                     type=int,
                     default=50,
@@ -158,6 +189,11 @@ parser.add_argument('--MixingAlpha',
                     required=False,
                     metavar='MIXING_ALPHA',
                     help='Mixing parameter for the density matrix.')
+parser.add_argument('--UseScalapack',
+                    action='store_true',
+                    required=False,
+                    help='Use Scalapack as preferred diagonalization library')
+
 
 # Parse the arguments
 arg = parser.parse_args()
@@ -180,7 +216,7 @@ for i, specie in enumerate(set(AtomicTypes)):
         "_": specie,
         'element': specie,
         'potential': PSEUDO_POTENTIALS[specie],
-        'basis_set': BASIS_SET[specie]
+        'basis_set': BASIS_SET[arg.BasisSet][specie]
     })
 
 Cell_Dict = {'abc': [CellParameters[0], CellParameters[1], CellParameters[2]],
@@ -190,8 +226,10 @@ Cell_Dict = {'abc': [CellParameters[0], CellParameters[1], CellParameters[2]],
 Global_Dict = {
     "project_name": arg.FrameworkName,
     "run_type": "energy",
-    "preferred_diag_library": "scalapack",
 }
+
+if arg.UseScalapack:
+    Global_Dict["preferred_diag_library"] = "scalapack"
 
 Force_Eval_Dict = {
         "+dft": {
@@ -216,12 +254,23 @@ Force_Eval_Dict = {
             },
             "+xc": {
                 "+xc_functional": {
-                    "_": "PBE"
-                }
-            },
-            "charge": 0,
-            "multiplicity": 1,
-            "basis_set_file_name": f"{arg.CP2KDataDir}/BASIS_MOLOPT",
+                    "_": arg.Functional
+                },
+                "+vdw_potential": {
+                    "potential_type": "pair_potential",
+                    "+pair_potential": {
+                        "type": arg.DispersionCorrection,
+                        "reference_functional": arg.Functional,
+                        "r_cutoff": 16,
+                        "parameter_file_name": f"{arg.CP2KDataDir}/dftd3.dat"
+                        }
+                    }
+                },
+            "charge": arg.Charge,
+            "multiplicity": arg.Multipliticy,
+            "basis_set_file_name": [
+                f"{arg.CP2KDataDir}/BASIS_MOLOPT",
+                f"{arg.CP2KDataDir}/BASIS_MOLOPT_UZH"],
             "potential_file_name": f"{arg.CP2KDataDir}/GTH_POTENTIALS",
         },
         "+print": {
@@ -238,7 +287,9 @@ Force_Eval_Dict = {
     }
 
 if arg.UseOT:
-    Force_Eval_Dict["+dft"]['+scf']["+ot"] = {"minimizer": "DIIS", "n_diis": 7, "preconditioner": "FULL_SINGLE_INVERSE"}
+    Force_Eval_Dict["+dft"]['+scf']["+ot"] = {"minimizer": "DIIS",
+                                              "n_diis": 7,
+                                              "preconditioner": "FULL_SINGLE_INVERSE"}
 
 if arg.UseSmearing:
     if arg.SmearingMethod == 'fermi_dirac':
