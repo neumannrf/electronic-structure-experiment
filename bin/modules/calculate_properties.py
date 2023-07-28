@@ -302,7 +302,7 @@ def saveVibrationalVectors(Frameworkname, outdir):
     '''
 
     # Read the molden file
-    with open(os.path.join(os.getcwd(), f'{Frameworkname}-VIBRATIONS-1.molden')) as f:
+    with open(os.path.join(os.getcwd(), f'{Frameworkname}-VIBRATIONS-1.mol')) as f:
         molden_file = f.read().splitlines()
 
     position = {' [FREQ]': None,
@@ -342,7 +342,7 @@ def saveVibrationalVectors(Frameworkname, outdir):
 
     for i, vib in enumerate(vibrations):
 
-        axsf_filename = os.path.join(os.path.join(outdir, 'VIBRATION_FILES'), f'VIBRATIONS-{i}-{freq_list[i]}.axsf')
+        axsf_filename = os.path.join(os.path.join(outdir, 'VIBRATION_FILES'), f'VIBRATIONS-{i}-{float(freq_list[i])}.axsf')
         axsf_file = open(axsf_filename, 'w')
 
         axsf_file.write('CRYSTAL\n')

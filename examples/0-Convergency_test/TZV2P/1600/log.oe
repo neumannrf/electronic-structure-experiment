@@ -1,0 +1,38 @@
+Running CP2K simulation...
+
+------------------------------------------------------------
+Sender: LSF System <lsfadmin@cccxc560.pok.ibm.com>
+Subject: Job 1866545: <MgMOF-1600> in cluster <cccCluster> Done
+
+Job <MgMOF-1600> was submitted from host <cccxl015.pok.ibm.com> by user <felipelo> in cluster <cccCluster> at Thu Jul 13 13:10:44 2023
+Job was executed on host(s) <36*cccxc560.pok.ibm.com>, in queue <x86_24h>, as user <felipelo> in cluster <cccCluster> at Thu Jul 13 13:10:46 2023
+</u/felipelo> was used as the home directory.
+</dccstor/nanopore-2945/felipe/ConvergencyCP2K/TZV2P/1600> was used as the working directory.
+Started at Thu Jul 13 13:10:46 2023
+Terminated at Thu Jul 13 13:15:28 2023
+Results reported at Thu Jul 13 13:15:28 2023
+
+Your job looked like:
+
+------------------------------------------------------------
+# LSBATCH: User input
+bash run.sh
+------------------------------------------------------------
+
+Successfully completed.
+
+Resource usage summary:
+
+    CPU time :                                   9803.57 sec.
+    Max Memory :                                 37424 MB
+    Average Memory :                             36126.54 MB
+    Total Requested Memory :                     301465.00 MB
+    Delta Memory :                               264041.00 MB
+    Max Swap :                                   -
+    Max Processes :                              41
+    Max Threads :                                42
+    Run time :                                   281 sec.
+    Turnaround time :                            284 sec.
+
+The output (if any) is above this job summary.
+

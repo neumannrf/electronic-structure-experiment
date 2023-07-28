@@ -17,17 +17,18 @@ The script below shows a simple example of how to use the scripts provided in th
 #!/bin/bash
 
 # Define environment variables
-export PATH=$PATH:/home/felipelopes/Simulations/electronic-density-experiment/bin/
-export EPATH=/home/felipelopes/Simulations/electronic-density-experiment/bin/
-export CP2K_DIR=/home/felipelopes/Programs/cp2k
+export PATH=$PATH:/dccstor/nanopore-2945/electronic-density-experiment/bin/
+
+export CP2K_DIR=/dccstor/nanopore-2945/cp2k/cp2k-v2023.1
 export CP2K_DATA_DIR=${CP2K_DIR}/data
-export CHARGEMOL_DIR=/home/felipelopes/Programs/Chargemol/
+
+export CHARGEMOL_DIR=/dccstor/nanopore-2945/Chargemol/
 export CHARGEMOL_DATA_FOLDER=${CHARGEMOL_DIR}/atomic_densities/
 
 # Define specific variables
-FrameworkName='CIP-Me'
+FrameworkName='MgMOF-74'
 OutputFolder=$PWD
-NProcs=4
+NProcs=36
 
 # Load the CP2K setup script
 source ${CP2K_DIR}/tools/toolchain/install/setup
@@ -39,12 +40,16 @@ mv -v ${OutputFolder}/${FrameworkName}_prim.cif ${OutputFolder}/${FrameworkName}
 
 echo -e "\nCreating CP2K input file..."
 charge_density.py --FrameworkName ${FrameworkName} \
-                  --SCFGuess 'restart' \
+                  --Functional "PBE" \
+                  --DispersionCorrection "DFTD3(BJ)" \
+                  --PWCutoff 1200 \
+                  --BasisSet "TZV2P" \
+                  --UseScalapack  \
                   ${OutputFolder}
 
 export OMP_NUM_THREADS=1
 echo -e "\nRunning CP2K simulation with ${NProcs} MPI and ${OMP_NUM_THREADS} OMP process..."
-mpirun -np ${NProcs} $CP2K_DIR/exe/local/cp2k.psmp -i simulate_SCF.inp -o simulate_SCF.out
+mpirun -np ${NProcs} $CP2K_DIR/exe/local/cp2k.psmp -i simulation_SCF.inp -o simulation_SCF.out
 
 echo -e "\nRenaming the cube file..."
 mv *-valence_density-ELECTRON_DENSITY-1_0.cube valence_density.cube
@@ -69,17 +74,18 @@ Below there is an example of a geometry optimization script. It is very similar 
 #!/bin/bash
 
 # Define environment variables
-export PATH=$PATH:/home/felipelopes/Simulations/electronic-density-experiment/bin/
-export EPATH=/home/felipelopes/Simulations/electronic-density-experiment/bin/
-export CP2K_DIR=/home/felipelopes/Programs/cp2k
+export PATH=$PATH:/dccstor/nanopore-2945/electronic-density-experiment/bin/
+
+export CP2K_DIR=/dccstor/nanopore-2945/cp2k/cp2k-v2023.1
 export CP2K_DATA_DIR=${CP2K_DIR}/data
-export CHARGEMOL_DIR=/home/felipelopes/Programs/Chargemol/
+
+export CHARGEMOL_DIR=/dccstor/nanopore-2945/Chargemol/
 export CHARGEMOL_DATA_FOLDER=${CHARGEMOL_DIR}/atomic_densities/
 
 # Define specific variables
-FrameworkName='CIP-Me'
+FrameworkName='MgMOF-74'
 OutputFolder=$PWD
-NumProcs=4
+NProcs=36
 
 # Load the CP2K setup script
 source ${CP2K_DIR}/tools/toolchain/install/setup
@@ -91,11 +97,16 @@ mv -v ${OutputFolder}/${FrameworkName}_prim.cif ${OutputFolder}/${FrameworkName}
 
 echo -e "\nCreating CP2K input file..."
 structure_optimization.py --FrameworkName ${FrameworkName} \
+                          --Functional "PBE" \
+                          --DispersionCorrection "DFTD3(BJ)" \
+                          --PWCutoff 1200 \
+                          --KeepSymmetry \
+                          --BasisSet "TZV2P" \
                           ${OutputFolder}
 
 export OMP_NUM_THREADS=1
-echo -e "\nRunning CP2K simulation with ${NumProcs} MPI and ${OMP_NUM_THREADS} OMP process..."
-mpirun -np ${NumProcs} $CP2K_DIR/exe/local/cp2k.psmp -i simulation_Optimization.inp -o simulation_Optimization.out
+echo -e "\nRunning CP2K simulation with ${NProcs} MPI and ${OMP_NUM_THREADS} OMP process..."
+mpirun -np ${NProcs} $CP2K_DIR/exe/local/cp2k.psmp -i simulation_Optimization.inp -o simulation_Optimization.out
 
 parse_optimization.py --FrameworkName ${FrameworkName} \
                       --SaveHistory  \
@@ -110,15 +121,18 @@ Below there is an example of a vibrational frequencies script. It is very simila
 #!/bin/bash
 
 # Define environment variables
-export PATH=$PATH:/home/felipelopes/Simulations/electronic-density-experiment/bin/
-export CP2K_DIR=/home/felipelopes/Programs/cp2k
+export PATH=$PATH:/dccstor/nanopore-2945/electronic-density-experiment/bin/
+
+export CP2K_DIR=/dccstor/nanopore-2945/cp2k/cp2k-v2023.1
 export CP2K_DATA_DIR=${CP2K_DIR}/data
 
+export CHARGEMOL_DIR=/dccstor/nanopore-2945/Chargemol/
+export CHARGEMOL_DATA_FOLDER=${CHARGEMOL_DIR}/atomic_densities/
+
 # Define specific variables
-FrameworkName='MgMOF74'
+FrameworkName='MgMOF-74'
 OutputFolder=$PWD
-NumProcs=32
-export OMP_NUM_THREADS=1
+NProcs=144
 
 # Load the CP2K setup script
 source ${CP2K_DIR}/tools/toolchain/install/setup
@@ -128,17 +142,23 @@ echo -e "\nCreating primitive P1 cell..."
 pmg structure --convert --filename ${OutputFolder}/${FrameworkName}.cif ${OutputFolder}/${FrameworkName}_prim.cif
 mv -v ${OutputFolder}/${FrameworkName}_prim.cif ${OutputFolder}/${FrameworkName}.cif
 
-echo -e "\nCreating input file for CP2K Vibrations calculation..."
+echo -e "\nCreating CP2K input file..."
 raman_ir.py --FrameworkName ${FrameworkName} \
-            --MaxSCFycles 50 \
-            --ProcsPerReplica 16 \
+            --Functional "PBE" \
+            --DispersionCorrection "DFTD3(BJ)" \
+            --PWCutoff 1200 \
+            --BasisSet "TZV2P" \
+            --ProcsPerReplica 9 \
             --dX 0.001 \
             --CalculateRaman \
             --CalculateIR \
+            --UseScalapack \
             ${OutputFolder}
 
-echo -e "\nRunning CP2K simulation with ${NumProcs} MPI and ${OMP_NUM_THREADS} OMP process..."
-mpirun -np ${NumProcs} $CP2K_DIR/exe/local/cp2k.psmp -i simulation_Vibrations.inp -o simulation_Vibrations.out
+export OMP_NUM_THREADS=1
+
+echo -e "\nRunning CP2K simulation with ${NProcs} MPI and ${OMP_NUM_THREADS} OMP process..."
+mpirun -np ${NProcs} $CP2K_DIR/exe/local/cp2k.psmp -i simulation_Vibrations.inp -o simulation_Vibrations.out
 
 echo -e "\nCreating RASPA P1 cell input file..."
 parse_vibrations.py --FrameworkName ${FrameworkName} \

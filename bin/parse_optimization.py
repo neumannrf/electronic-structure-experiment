@@ -41,7 +41,30 @@ for line in lines:
         optimized = True
         break
 
-if not optimized:
+lbfgs_error = False
+for line in lines:
+    if 'Specific L-BFGS convergence criteria' in line:
+        lbfgs_error = True
+        break
+
+if not optimized and lbfgs_error:
+    print('Error on the L-BFGS algorithm! Exiting...')
+    print('Saving last structure.')
+
+    CellParametersList = getCellParametersFromOptimization(arg.output_folder, arg.FrameworkName)
+    StructureList = getStructuresFromOptimization(arg.output_folder, arg.FrameworkName)
+
+    tempStructure = Atoms(StructureList[-1][0],
+                          cell=CellParametersList[-1],
+                          pbc=(1, 1, 1),
+                          positions=StructureList[-1][1].T)
+
+    tempStructure.write(os.path.join(arg.output_folder, arg.FrameworkName + '_error' + '.cif'))
+
+    exit(1)
+
+
+if not optimized and not lbfgs_error:
     print('Optimization failed! Exiting...')
     exit(1)
 
@@ -67,7 +90,7 @@ if arg.SaveHistory:
 tempStructure = Atoms(StructureList[-1][0],
                       cell=CellParametersList[-1],
                       pbc=(1, 1, 1),
-                      positions=StructureList[i][-1].T)
+                      positions=StructureList[-1][1].T)
 
 print('Saving optimized structure.')
 

@@ -1,0 +1,38 @@
+Running CP2K simulation...
+
+------------------------------------------------------------
+Sender: LSF System <lsfadmin@cccxc554.pok.ibm.com>
+Subject: Job 1865831: <MgMOF-500> in cluster <cccCluster> Done
+
+Job <MgMOF-500> was submitted from host <cccxl015.pok.ibm.com> by user <felipelo> in cluster <cccCluster> at Thu Jul 13 11:56:28 2023
+Job was executed on host(s) <36*cccxc554.pok.ibm.com>, in queue <x86_24h>, as user <felipelo> in cluster <cccCluster> at Thu Jul 13 11:58:06 2023
+</u/felipelo> was used as the home directory.
+</dccstor/nanopore-2945/felipe/ConvergencyCP2K/TZV2P/500> was used as the working directory.
+Started at Thu Jul 13 11:58:06 2023
+Terminated at Thu Jul 13 11:59:37 2023
+Results reported at Thu Jul 13 11:59:37 2023
+
+Your job looked like:
+
+------------------------------------------------------------
+# LSBATCH: User input
+bash run.sh
+------------------------------------------------------------
+
+Successfully completed.
+
+Resource usage summary:
+
+    CPU time :                                   3061.78 sec.
+    Max Memory :                                 12880 MB
+    Average Memory :                             11842.79 MB
+    Total Requested Memory :                     42393.00 MB
+    Delta Memory :                               29513.00 MB
+    Max Swap :                                   -
+    Max Processes :                              41
+    Max Threads :                                42
+    Run time :                                   89 sec.
+    Turnaround time :                            189 sec.
+
+The output (if any) is above this job summary.
+
