@@ -48,7 +48,7 @@ parser.add_argument('--OptimizationType',
                     choices=['cell_opt', 'geo_opt'],
                     metavar='OPTIMIZATION_TYPE',
                     help='Type of optimization to perform. Cell + atoms = cell_opt, only atoms = geo_opt.')
-parser.add_argument('--Use_OT',
+parser.add_argument('--UseOT',
                     action='store_true',
                     required=False,
                     help='Use the Orbital Transformation (OT) method.')
