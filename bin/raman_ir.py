@@ -122,7 +122,7 @@ parser.add_argument('--Functional',
                     default='PBE',
                     action='store',
                     required=False,
-                    choices=['PBE', 'xTB'],
+                    choices=['PBE', 'XTB'],
                     metavar='FUNCTIONAL',
                     help='Functional used to calculate the total energy.')
 parser.add_argument('--DispersionCorrection',
@@ -229,59 +229,76 @@ Vibrational_Analysis_Dict = {
     }
 
 Force_Eval_Dict = {
-        "+dft": {
-            "+qs": {'eps_default': arg.EPSDefault},
-            '+mgrid': {
-                'cutoff': arg.PWCutoff,
-                'ngrids': arg.NGrid,
-                'rel_cutoff': arg.RelativeCutOff
+            "+dft": {
+                "+qs": {
+                    'eps_default': arg.EPSDefault,
+                    },
+                "+print": {
+                    "+hirshfeld": {"_": "OFF"},
+                    "+lowdin": {"_": "OFF"},
+                    "+mulliken": {"_": "OFF"},
                 },
+                "+scf": {
+                    "scf_guess": arg.SCFGuess,
+                    "max_scf": arg.MaxSCFycles,
+                    "eps_scf": arg.SCFConvergence,
+                    "+mixing": {"method": arg.MixingMethod, "alpha": arg.MixingAlpha},
+                    "+outer_scf": {"max_scf": arg.MaxOuterSCFycles, "eps_scf": arg.SCFConvergence}
+                },
+                "charge": arg.Charge,
+                "multiplicity": arg.Multipliticy
+            },
             "+print": {
-                "+hirshfeld": {"_": "OFF"},
-                "+lowdin": {"_": "OFF"},
-                "+mulliken": {"_": "OFF"},
+                "+forces": {"filename": "forces", "_": "ON"},
+                "+stress_tensor": {"_": "ON"}
             },
-            "+scf": {
-                "scf_guess": arg.SCFGuess,
-                "max_scf": arg.MaxSCFycles,
-                "eps_scf": arg.SCFConvergence,
-                "+mixing": {"method": arg.MixingMethod, "alpha": arg.MixingAlpha},
-                "+outer_scf": {"max_scf": arg.MaxOuterSCFycles, "eps_scf": arg.SCFConvergence}
+            "+subsys": {
+                "+cell": Cell_Dict,
+                "+coord": Coord_Dict,
+                "+print": {'+symmetry': {'symmetry_elements': True}},
             },
-            "+xc": {
-                "+xc_functional": {
-                    "_": arg.Functional
-                },
-                "+vdw_potential": {
-                    "potential_type": "pair_potential",
-                    "+pair_potential": {
-                        "type": arg.DispersionCorrection,
-                        "reference_functional": arg.Functional,
-                        "r_cutoff": 16,
-                        "parameter_file_name": f"{arg.CP2KDataDir}/dftd3.dat"
+            "stress_tensor": "analytical"
+        }
+
+if arg.Functional == 'XTB':
+    Force_Eval_Dict['+dft']['+qs'] = {
+                    'method': 'xTB',
+                    '+xTB': {
+                        'check_atomic_charges': True,
+                        'do_ewald': True,
+                        '+parameter': {'dispersion_parameter_file': 'dftd3.dat'},
+                    },
+                }
+
+if arg.Functional == 'PBE':
+    Force_Eval_Dict["+dft"]['+xc'] = {
+                    "+xc_functional": {
+                        "_": arg.Functional
+                    },
+                    "+vdw_potential": {
+                        "potential_type": "pair_potential",
+                        "+pair_potential": {
+                            "type": arg.DispersionCorrection,
+                            "reference_functional": arg.Functional,
+                            "r_cutoff": 16,
+                            "parameter_file_name": f"{arg.CP2KDataDir}/dftd3.dat"
+                            }
                         }
                     }
-                },
-            "charge": arg.Charge,
-            "multiplicity": arg.Multipliticy,
-            "basis_set_file_name": [
-                f"{arg.CP2KDataDir}/BASIS_MOLOPT",
-                f"{arg.CP2KDataDir}/BASIS_MOLOPT_UZH"],
-            "potential_file_name": f"{arg.CP2KDataDir}/GTH_POTENTIALS",
-        },
-        "+print": {
-            "+forces": {"filename": "forces", "_": "ON"},
-            "+stress_tensor": {"_": "ON"}
-        },
-        "+subsys": {
-            "+cell": Cell_Dict,
-            "+coord": Coord_Dict,
-            "+kind": Kind_List,
-            "+print": {'+symmetry': {'symmetry_elements': True}},
-        },
-        "method": "quickstep",
-        "stress_tensor": "analytical"
-    }
+    Force_Eval_Dict["+dft"]['+mgrid'] = {
+        'cutoff': arg.PWCutoff,
+        'ngrids': arg.NGrid,
+        'rel_cutoff': arg.RelativeCutOff
+        }
+    
+    Force_Eval_Dict["+dft"]["basis_set_file_name"] = [
+        f"{arg.CP2KDataDir}/BASIS_MOLOPT", 
+        f"{arg.CP2KDataDir}/BASIS_MOLOPT_UZH"
+        ]
+    
+    Force_Eval_Dict["+dft"]["potential_file_name"] = f"{arg.CP2KDataDir}/GTH_POTENTIALS"
+
+    Force_Eval_Dict["+subsys"]["+kind"] = Kind_List
 
 if arg.UseOT:
     Force_Eval_Dict["+dft"]['+scf']["+ot"] = {"minimizer": "DIIS",

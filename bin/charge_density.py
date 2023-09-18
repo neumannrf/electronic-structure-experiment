@@ -80,7 +80,7 @@ parser.add_argument('--Functional',
                     default='PBE',
                     action='store',
                     required=False,
-                    choices=['PBE', 'xTB'],
+                    choices=['PBE'],
                     metavar='FUNCTIONAL',
                     help='Functional used to calculate the total energy.')
 parser.add_argument('--DispersionCorrection',
