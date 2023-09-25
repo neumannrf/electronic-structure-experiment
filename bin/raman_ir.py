@@ -290,12 +290,12 @@ if arg.Functional == 'PBE':
         'ngrids': arg.NGrid,
         'rel_cutoff': arg.RelativeCutOff
         }
-    
+
     Force_Eval_Dict["+dft"]["basis_set_file_name"] = [
-        f"{arg.CP2KDataDir}/BASIS_MOLOPT", 
+        f"{arg.CP2KDataDir}/BASIS_MOLOPT",
         f"{arg.CP2KDataDir}/BASIS_MOLOPT_UZH"
         ]
-    
+
     Force_Eval_Dict["+dft"]["potential_file_name"] = f"{arg.CP2KDataDir}/GTH_POTENTIALS"
 
     Force_Eval_Dict["+subsys"]["+kind"] = Kind_List
