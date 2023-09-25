@@ -262,8 +262,8 @@ Force_Eval_Dict = {
 
 if arg.Functional == 'XTB':
     Force_Eval_Dict['+dft']['+qs'] = {
-                    'method': 'xTB',
-                    '+xTB': {
+                    'method': 'XTB',
+                    '+XTB': {
                         'check_atomic_charges': True,
                         'do_ewald': True,
                         '+parameter': {'dispersion_parameter_file': 'dftd3.dat'},
