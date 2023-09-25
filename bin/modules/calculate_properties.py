@@ -284,13 +284,13 @@ def get_vibrational_data(CP2K_output_name) -> tuple[np.ndarray, np.ndarray, np.n
 
     for i, line in enumerate(normal_modes):
         if ' VIB|Frequency (cm^-1)' in line:
-            freq = np.array(line.split()[2:]).astype(float)
+            freq = np.array([n.replace('*', '0') for n in line.split()[2:]]).astype(float)
             frequency = np.append(frequency, freq)
         if 'VIB|IR int (KM/Mole)' in line:
-            ir_int = np.array(line.split()[3:]).astype(float)
+            ir_int = np.array([n.replace('*', '0') for n in  line.split()[3:]]).astype(float)
             IR_intensity = np.append(IR_intensity, ir_int)
         if ' VIB|Raman (A^4/amu)' in line:
-            raman_int = np.array(line.split()[2:]).astype(float)
+            raman_int = np.array([n.replace('*', '0') for n in  line.split()[2:]]).astype(float)
             RAMAN_intensity = np.append(RAMAN_intensity, raman_int)
 
     return frequency, IR_intensity, RAMAN_intensity
