@@ -193,7 +193,10 @@ parser.add_argument('--UseScalapack',
                     action='store_true',
                     required=False,
                     help='Use Scalapack as preferred diagonalization library')
-
+parser.add_argument('--Restart',
+                    action='store_true',
+                    required=False,
+                    help='Restart the simulation from the last saved configuration.')
 
 # Parse the arguments
 arg = parser.parse_args()
@@ -304,8 +307,15 @@ if arg.UseSmearing:
         }
     Force_Eval_Dict["+dft"]['+scf']['added_mos'] = arg.AddedMOs
 
-input = {"+global": Global_Dict, "+force_eval": [Force_Eval_Dict]}
+input_dict = {
+    "+global": Global_Dict,
+    "+force_eval": [Force_Eval_Dict],
+    }
 
+if arg.Restart:
+    input_dict['+ext_restart'] = {
+        "restart_file_name": f"{arg.FrameworkName}-1.restart"
+    }
 generator = CP2KInputGenerator()
 
 with open("simulation_SCF.inp", "w") as fhandle:
