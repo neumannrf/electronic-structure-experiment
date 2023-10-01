@@ -316,8 +316,9 @@ if arg.Restart:
     input_dict['+ext_restart'] = {
         "restart_file_name": f"{arg.FrameworkName}-1.restart"
     }
+
 generator = CP2KInputGenerator()
 
 with open("simulation_SCF.inp", "w") as fhandle:
-    for line in generator.line_iter(input):
+    for line in generator.line_iter(input_dict):
         fhandle.write(f"{line}\n")
