@@ -205,6 +205,10 @@ parser.add_argument('--UseScalapack',
                     action='store_true',
                     required=False,
                     help='Use Scalapack as preferred diagonalization library')
+parser.add_argument('--Restart',
+                    action='store_true',
+                    required=False,
+                    help='Restart the simulation from the last saved configuration.')
 
 # Parse the arguments
 arg = parser.parse_args()
@@ -372,11 +376,18 @@ if arg.OptimizationType == 'geo_opt':
         "rms_force": 0.0007
     }
 
+input_dict = {
+    "+global": Global_Dict,
+    "+force_eval": [Force_Eval_Dict],
+    "+motion": motion_dict}
 
-input = {"+global": Global_Dict, "+force_eval": [Force_Eval_Dict], "+motion": motion_dict}
+if arg.Restart:
+    input_dict['+ext_restart'] = {
+        "restart_file_name": f"{arg.FrameworkName}-1.restart"
+    }
 
 generator = CP2KInputGenerator()
 
 with open("simulation_Optimization.inp", "w") as fhandle:
-    for line in generator.line_iter(input):
+    for line in generator.line_iter(input_dict):
         fhandle.write(f"{line}\n")

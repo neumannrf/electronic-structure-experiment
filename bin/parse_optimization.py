@@ -81,9 +81,9 @@ if arg.SaveHistory:
                               pbc=(1, 1, 1),
                               positions=StructureList[i][1].T)
 
-        print('Saving structure ' + str(i) + ' of ' + str(len(CellParametersList)))
+        print('Saving structure ' + str(i + 1) + ' of ' + str(len(CellParametersList)))
 
-        tempStructure.write(os.path.join(save_path, arg.FrameworkName + '_Optimization_' + str(i) + '.cif'))
+        tempStructure.write(os.path.join(save_path, arg.FrameworkName + '_Optimization_' + str(i + 1) + '.cif'))
 
 
 # Write the final structure to file

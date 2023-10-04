@@ -337,10 +337,13 @@ if arg.UseSmearing:
         }
     Force_Eval_Dict["+dft"]['+scf']['added_mos'] = arg.AddedMOs
 
-input = {"+global": Global_Dict, "+force_eval": [Force_Eval_Dict]}
+input_dict = {
+    "+global": Global_Dict,
+    "+force_eval": [Force_Eval_Dict],
+    }
 
 generator = CP2KInputGenerator()
 
 with open("simulation_SCF.inp", "w") as fhandle:
-    for line in generator.line_iter(input):
+    for line in generator.line_iter(input_dict):
         fhandle.write(f"{line}\n")
