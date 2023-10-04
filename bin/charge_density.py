@@ -193,7 +193,28 @@ parser.add_argument('--UseScalapack',
                     action='store_true',
                     required=False,
                     help='Use Scalapack as preferred diagonalization library')
-
+parser.add_argument('--WriteDensity',
+                    action='store_true',
+                    required=False,
+                    help='Write the electronic density in cube format.')
+parser.add_argument('--WriteMO',
+                    action='store_true',
+                    required=False,
+                    help='Write the MO orbitals in cube format.')
+parser.add_argument('--NHOMO',
+                    type=int,
+                    default=0,
+                    action='store',
+                    required=False,
+                    metavar='NHOMO',
+                    help='Number of highest occupied molecular orbitals to be printed.')
+parser.add_argument('--NLUMO',
+                    type=int,
+                    default=0,
+                    action='store',
+                    required=False,
+                    metavar='NLUMO',
+                    help='Number of lowest unoccupied molecular orbitals to be printed.')
 
 # Parse the arguments
 arg = parser.parse_args()
@@ -243,7 +264,6 @@ Force_Eval_Dict = {
                 "+hirshfeld": {"_": "OFF"},
                 "+lowdin": {"_": "OFF"},
                 "+mulliken": {"_": "OFF"},
-                "+E_DENSITY_CUBE": {"_": "ON", "filename": "valence_density", "stride": 1},
             },
             "+scf": {
                 "scf_guess": arg.SCFGuess,
@@ -285,6 +305,19 @@ Force_Eval_Dict = {
         "method": "quickstep",
         "stress_tensor": "analytical"
     }
+
+if arg.WriteDensity:
+    Force_Eval_Dict["+dft"]["+print"]['+e_density_cube'] = {
+        "filename": "valence_density",
+        "stride": 1
+        }
+
+if arg.NHOMO != 0 or arg.NLUMO != 0 or arg.WriteMO:
+    Force_Eval_Dict["+dft"]["+print"]['+mo_cubes'] = {
+        "nhomo": arg.NHOMO,
+        "nlumo": arg.NLUMO,
+        "write_cube": arg.WriteMO
+        }
 
 if arg.UseOT:
     Force_Eval_Dict["+dft"]['+scf']["+ot"] = {"minimizer": "DIIS",

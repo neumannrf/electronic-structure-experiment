@@ -141,7 +141,7 @@ def get_AtomicPositions(cif_filename: str) -> tuple[list[str], list[float], list
     return atom_site_type_symbol, atom_site_fract_x, atom_site_fract_y, atom_site_fract_z
 
 
-def get_AtomicCharges(xyz_filename: str) -> list[float]:
+def get_DDECAtomicCharges(xyz_filename: str) -> list[float]:
     """
     Get the atomic charges from the xyz file.
 
@@ -167,6 +167,35 @@ def get_AtomicCharges(xyz_filename: str) -> list[float]:
         charges = []
         for line in lines[2:2 + n_atoms]:
             charges.append(float(line.split()[-1]))
+
+    return charges
+
+
+def get_CM5AtomicCharges(output_filename: str) -> list[float]:
+    """
+    Get the atomic charges from the xyz file.
+
+    Parameters
+    ----------
+    xyz_filename : str
+        Path to the xyz file.
+
+    Returns
+    -------
+    charges : list
+        List of the atomic charges.
+    """
+    # Read the xyz file
+    with open(output_filename, 'r') as f:
+        # Read the lines
+        lines = f.readlines()
+
+        start_pos = [i for i in range(len(lines)) if 'The computed CM5 net atomic charges are:' in lines[i]][0]
+        end_pos = [i for i in range(len(lines)) if 'Hirshfeld and CM5 analysis finished' in lines[i]][0]
+
+        charge_lines = ' '.join(lines[start_pos + 1: end_pos]).split()
+
+        charges = [float(i) for i in charge_lines]
 
     return charges
 
@@ -287,10 +316,10 @@ def get_vibrational_data(CP2K_output_name) -> tuple[np.ndarray, np.ndarray, np.n
             freq = np.array([n.replace('*', '0') for n in line.split()[2:]]).astype(float)
             frequency = np.append(frequency, freq)
         if 'VIB|IR int (KM/Mole)' in line:
-            ir_int = np.array([n.replace('*', '0') for n in  line.split()[3:]]).astype(float)
+            ir_int = np.array([n.replace('*', '0') for n in line.split()[3:]]).astype(float)
             IR_intensity = np.append(IR_intensity, ir_int)
         if ' VIB|Raman (A^4/amu)' in line:
-            raman_int = np.array([n.replace('*', '0') for n in  line.split()[2:]]).astype(float)
+            raman_int = np.array([n.replace('*', '0') for n in line.split()[2:]]).astype(float)
             RAMAN_intensity = np.append(RAMAN_intensity, raman_int)
 
     return frequency, IR_intensity, RAMAN_intensity
@@ -342,7 +371,8 @@ def saveVibrationalVectors(Frameworkname, outdir):
 
     for i, vib in enumerate(vibrations):
 
-        axsf_filename = os.path.join(os.path.join(outdir, 'VIBRATION_FILES'), f'VIBRATIONS-{i}-{float(freq_list[i])}.axsf')
+        axsf_filename = os.path.join(os.path.join(outdir, 'VIBRATION_FILES'),
+                                     f'VIBRATIONS-{i}-{float(freq_list[i])}.axsf')
         axsf_file = open(axsf_filename, 'w')
 
         axsf_file.write('CRYSTAL\n')
