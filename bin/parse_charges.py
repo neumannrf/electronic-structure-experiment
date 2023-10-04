@@ -6,7 +6,11 @@
 import os
 import argparse
 
-from modules.calculate_properties import get_AtomicCharges, get_CellParameters, get_AtomicPositions, saveCIF
+from modules.calculate_properties import (get_AtomicPositions,
+                                          get_CellParameters,
+                                          get_CM5AtomicCharges,
+                                          get_DDECAtomicCharges,
+                                          saveCIF)
 
 # Required parameters
 parser = argparse.ArgumentParser(description='Create the Chargemol simulation input.')
@@ -21,6 +25,10 @@ parser.add_argument('--FrameworkName',
                     action='store',
                     metavar='FRAMEWORK_NAME',
                     help='Name of the CIF file describing the nanoporous material structure.')
+parser.add_argument('--CM5',
+                    action='store_true',
+                    required=False,
+                    help='Get the CM5 charges calculated by Chargemol.')
 
 arg = parser.parse_args()
 
@@ -39,7 +47,10 @@ if not converged:
     exit(1)
 
 # Get the DDEC charges
-DDEC_Charges = get_AtomicCharges(os.path.join(arg.output_folder, 'DDEC6_even_tempered_net_atomic_charges.xyz'))
+DDEC_Charges = get_DDECAtomicCharges(os.path.join(arg.output_folder, 'DDEC6_even_tempered_net_atomic_charges.xyz'))
+
+# Get the CM5 charges
+CM5_Charges = get_CM5AtomicCharges(os.path.join(arg.output_folder, 'valence_cube_DDEC_analysis.output'))
 
 # Get the lattice parameters and atomic positions
 cif_filename = os.path.join(arg.output_folder, arg.FrameworkName + '.cif')
@@ -56,3 +67,13 @@ saveCIF(os.path.join(arg.output_folder, arg.FrameworkName + '_DDEC.cif'),
         PosY,
         PosZ,
         DDEC_Charges)
+
+if arg.CM5:
+    # Write the CM5 charges to file
+    saveCIF(os.path.join(arg.output_folder, arg.FrameworkName + '_CM5.cif'),
+            CellParameters,
+            AtomicTypes,
+            PosX,
+            PosY,
+            PosZ,
+            CM5_Charges)
