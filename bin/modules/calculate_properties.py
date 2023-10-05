@@ -3,11 +3,12 @@
 # Copyright IBM Corp. 2023
 # SPDX-License-Identifier: Apache2.0
 
-from textwrap import dedent
-
-import gemmi
-import numpy as np
 import os
+import json
+import gemmi
+
+import numpy as np
+from textwrap import dedent
 
 from ase.cell import Cell
 
@@ -325,13 +326,29 @@ def get_vibrational_data(CP2K_output_name) -> tuple[np.ndarray, np.ndarray, np.n
     return frequency, IR_intensity, RAMAN_intensity
 
 
-def saveVibrationalVectors(Frameworkname, outdir):
+def get_MoldenData(OutputFolder, Frameworkname):
     '''
-    Get the vibrational vectors from the CP2K output file.
-    '''
+    Get the vibrational information from the molden file.
 
+    Parameters
+    ----------
+    Frameworkname : str
+        Name of the framework.
+
+    Returns
+    -------
+    eigenVectors : list
+        List of the vibrational vectors.
+    modes : list
+        List of the vibrational modes.
+    atom_labels : list
+        List of the atomic labels.
+    atom_pos : list
+        List of the atomic positions.
+
+    '''
     # Read the molden file
-    with open(os.path.join(os.getcwd(), f'{Frameworkname}-VIBRATIONS-1.mol')) as f:
+    with open(os.path.join(OutputFolder, f'{Frameworkname}-VIBRATIONS-1.mol')) as f:
         molden_file = f.read().splitlines()
 
     position = {' [FREQ]': None,
@@ -344,10 +361,11 @@ def saveVibrationalVectors(Frameworkname, outdir):
         if line in position.keys():
             position[line] = i
 
-    freq_list = molden_file[position[' [FREQ]'] + 1: position[' [FR-COORD]']]
     atom_list = molden_file[position[' [FR-COORD]'] + 1: position[' [FR-NORM-COORD]']]
     atom_labels = [atom.split()[0] for atom in atom_list]
     atom_pos = np.array([atom.split()[1:] for atom in atom_list]).astype(float)
+
+    freq_list = molden_file[position[' [FREQ]'] + 1: position[' [FR-COORD]']]
 
     # convert atom_pos from bohr to angstrom
     atom_pos *= 0.529177
@@ -363,15 +381,32 @@ def saveVibrationalVectors(Frameworkname, outdir):
     # Reshape vibrations to the shape of (len(atom_list) + 1, -1)
     vibrations = [vibrations[i + 1:i + len(atom_list) + 1] for i in range(0, len(vibrations), len(atom_list) + 1)]
 
+    eigenVectors = [[i.split() for i in mode] for mode in vibrations]
+    eigenVectors = [[float(i) for sublist in mode for i in sublist] for mode in eigenVectors]
+
+    intensity = [float(i) for i in molden_file[position[' [INT]'] + 1:]]
+
+    modes = [i + 1 for i in range(len(intensity))]
+
+    return atom_labels, atom_pos, vibrations, modes, eigenVectors, intensity, freq_list
+
+
+def saveVibrationalVectors(OutputFolder, Frameworkname):
+    '''
+    Get the vibrational vectors from the CP2K output file.
+    '''
+
+    atom_labels, _, vibrations, _, _, _, freq_list = get_MoldenData(OutputFolder, Frameworkname)
+
     # Get the cell parameters from cif file
     CellParameters = get_CellParameters(Frameworkname + '.cif')
     CellMatrix = Cell.fromcellpar(CellParameters).tolist()
 
-    os.makedirs(os.path.join(outdir, 'VIBRATION_FILES'), exist_ok=True)
+    os.makedirs(os.path.join(OutputFolder, 'VIBRATION_FILES'), exist_ok=True)
 
     for i, vib in enumerate(vibrations):
 
-        axsf_filename = os.path.join(os.path.join(outdir, 'VIBRATION_FILES'),
+        axsf_filename = os.path.join(os.path.join(OutputFolder, 'VIBRATION_FILES'),
                                      f'VIBRATIONS-{i}-{float(freq_list[i])}.axsf')
         axsf_file = open(axsf_filename, 'w')
 
@@ -381,13 +416,70 @@ def saveVibrationalVectors(Frameworkname, outdir):
         axsf_file.write(f'  {CellMatrix[1][0]:15.10f}    {CellMatrix[1][1]:15.10f}    {CellMatrix[1][2]:15.10f}\n')
         axsf_file.write(f'  {CellMatrix[2][0]:15.10f}    {CellMatrix[2][1]:15.10f}    {CellMatrix[2][2]:15.10f}\n')
         axsf_file.write('PRIMCOORD    1\n')
-        axsf_file.write(f'      {len(atom_list)}   1\n')
-        for j, atom in enumerate(atom_list):
+        axsf_file.write(f'      {len(atom_labels)}   1\n')
+        for j, atom in enumerate(atom_labels):
             axsf_file.write(f' {atom} {vib[j]}\n')
 
         axsf_file.close()
 
     return None
+
+
+def saveChemicalJSON(OutputFolder, Frameworkname):
+
+    frequency, IR_intensity, RAMAN_intensity = get_vibrational_data(
+        os.path.join(OutputFolder, 'simulation_Vibrations.out')
+        )
+
+    atom_labels, atom_pos, _, modes, eigenVectors, _, _ = get_MoldenData(OutputFolder,
+                                                                         Frameworkname)
+
+    # Convert atom_labels to atom_number
+    atom_number = [gemmi.Element(atom).atomic_number for atom in atom_labels]
+
+    # Flatten the atom_pos list
+    atom_pos = [i for sublist in atom_pos for i in sublist]
+
+    # Get the cell parameters from cif file
+    CellParameters = get_CellParameters(Frameworkname + '.cif')
+    CellMatrix = Cell.fromcellpar(CellParameters).flatten().tolist()
+
+    formula = ' '.join([f'{atom}{atom_labels.count(atom)}' for atom in set(atom_labels)])
+
+    ChemJSON = {
+        "chemicalJson": 1,
+        "name": Frameworkname,
+        "formula": formula,
+        "unitCell": {
+            "a": CellParameters[0],
+            "b": CellParameters[1],
+            "c": CellParameters[2],
+            "alpha": CellParameters[3],
+            "beta":  CellParameters[4],
+            "gamma": CellParameters[5],
+            "cellVectors": CellMatrix
+        },
+        "atoms": {
+            "elements": {
+                "type": atom_labels,
+                "number": atom_number
+                },
+            "coords": {
+                "3d": atom_pos
+                }
+        },
+        'vibrations': {
+            'eigenVectors': eigenVectors,
+            'frequencies': list(frequency),
+            'intensities': list(IR_intensity),
+            'ramanIntensities': list(RAMAN_intensity),
+            'modes': modes
+        }
+        }
+
+    # Save ChemJSON as a json file
+    with open(os.path.join(OutputFolder, f'{Frameworkname}.cjson'), 'w') as f:
+        json.dump(ChemJSON, f, indent=4)
 
 
 def lorentzian(x, x0, gamma) -> np.ndarray[float]:
