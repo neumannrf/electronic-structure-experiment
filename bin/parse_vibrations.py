@@ -7,7 +7,10 @@ import os
 import argparse
 import numpy as np
 
-from modules.calculate_properties import get_vibrational_data, lorentzian, saveVibrationalVectors
+from modules.calculate_properties import (get_vibrational_data,
+                                          lorentzian,
+                                          saveVibrationalVectors,
+                                          saveChemicalJSON)
 
 # Required parameters
 parser = argparse.ArgumentParser(description='Create the Chargemol simulation input.')
@@ -64,5 +67,9 @@ np.savetxt(os.path.join(arg.output_folder, f'{arg.FrameworkName}_RAMAN_IR_Curve.
            header='Frequency (cm-1), IR Intensity (km/mol), Raman Intensity (A2/amu)',
            delimiter=',')
 
+# Save the vibrations as cjson file
+saveChemicalJSON(arg.output_folder, arg.FrameworkName)
+
+# Save the vibrational modes as AXSF files
 if arg.SaveVibrations:
-    saveVibrationalVectors(arg.FrameworkName, arg.output_folder)
+    saveVibrationalVectors(arg.output_folder, arg.FrameworkName)
