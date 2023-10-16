@@ -318,7 +318,7 @@ if arg.WriteDensity:
 
 if arg.WriteHartreePotential:
     Force_Eval_Dict["+dft"]["+print"]['+v_hartree_cube'] = {
-        "filename": "electronstatic_potential",
+        "filename": "electrostatic_potential",
         "stride": 1
         }
 
