@@ -197,6 +197,10 @@ parser.add_argument('--WriteDensity',
                     action='store_true',
                     required=False,
                     help='Write the electronic density in cube format.')
+parser.add_argument('--WriteHartreePotential',
+                    action='store_true',
+                    required=False,
+                    help='Write the electrostatic potential in cube format.')
 parser.add_argument('--WriteMO',
                     action='store_true',
                     required=False,
@@ -309,6 +313,12 @@ Force_Eval_Dict = {
 if arg.WriteDensity:
     Force_Eval_Dict["+dft"]["+print"]['+e_density_cube'] = {
         "filename": "valence_density",
+        "stride": 1
+        }
+
+if arg.WriteHartreePotential:
+    Force_Eval_Dict["+dft"]["+print"]['+v_hartree_cube'] = {
+        "filename": "electrostatic_potential",
         "stride": 1
         }
 
