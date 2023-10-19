@@ -209,6 +209,41 @@ parser.add_argument('--Restart',
                     action='store_true',
                     required=False,
                     help='Restart the simulation from the last saved configuration.')
+parser.add_argument('--MaxIterations',
+                    type=int,
+                    default=500,
+                    action='store',
+                    required=False,
+                    metavar='MAX_ITER',
+                    help='Maximum number of optimization steps.')
+parser.add_argument('--MaxDR',
+                    type=float,
+                    default=3e-2,
+                    action='store',
+                    required=False,
+                    metavar='MAX_DR',
+                    help='Convergence criterion for the maximum geometry change.')
+parser.add_argument('--RMSDR',
+                    type=float,
+                    default=1.5e-2,
+                    action='store',
+                    required=False,
+                    metavar='RMS_DR',
+                    help='Convergence criterion for the root mean square (RMS) geometry change.')
+parser.add_argument('--MaxForce',
+                    type=float,
+                    default=1e-3,
+                    action='store',
+                    required=False,
+                    metavar='MAX_DR',
+                    help='Convergence criterion for the maximum force component of the current configuration.')
+parser.add_argument('--RMSForce',
+                    type=float,
+                    default=7e-4,
+                    action='store',
+                    required=False,
+                    metavar='RMS_DR',
+                    help='Convergence criterion for the root mean square (RMS) force of the current configuration')
 
 # Parse the arguments
 arg = parser.parse_args()
@@ -268,7 +303,7 @@ Force_Eval_Dict = {
             },
             "+print": {
                 "+forces": {"filename": "forces", "_": "ON"},
-                "+stress_tensor": {"_": "ON"}
+                "+stress_tensor": {"_": "ON"},
             },
             "+subsys": {
                 "+cell": Cell_Dict,
@@ -354,11 +389,11 @@ if arg.OptimizationType == 'cell_opt':
     motion_dict['+cell_opt'] = {
         "+lbfgs": {"trust_radius": 0.25},
         "optimizer": "lbfgs",
-        "max_iter": 500,
-        "max_dr": 0.03,
-        "max_force": 0.001,
-        "rms_dr": 0.015,
-        "rms_force": 0.0007
+        "max_iter": arg.MaxIterations,
+        "max_dr": arg.MaxDR,
+        "max_force": arg.MaxForce,
+        "rms_dr": arg.RMSDR,
+        "rms_force": arg.RMSForce
     }
 
     if arg.KeepSymmetry:
@@ -369,11 +404,11 @@ if arg.OptimizationType == 'cell_opt':
 if arg.OptimizationType == 'geo_opt':
     motion_dict['+geo_opt'] = {
         "+bfgs": {"trust_radius": 0.25},
-        "max_iter": 500,
-        "max_dr": 0.03,
-        "max_force": 0.001,
-        "rms_dr": 0.015,
-        "rms_force": 0.0007
+        "max_iter": arg.MaxIterations,
+        "max_dr": arg.MaxDR,
+        "max_force": arg.MaxForce,
+        "rms_dr": arg.RMSDR,
+        "rms_force": arg.RMSForce
     }
 
 input_dict = {
