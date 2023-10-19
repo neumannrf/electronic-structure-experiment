@@ -303,7 +303,7 @@ Force_Eval_Dict = {
             },
             "+print": {
                 "+forces": {"filename": "forces", "_": "ON"},
-                "+stress_tensor": {"_": "ON"},
+                "+stress_tensor": {"_": "ON"}
             },
             "+subsys": {
                 "+cell": Cell_Dict,
