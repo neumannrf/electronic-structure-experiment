@@ -216,6 +216,13 @@ parser.add_argument('--MaxIterations',
                     required=False,
                     metavar='MAX_ITER',
                     help='Maximum number of optimization steps.')
+parser.add_argument('--TrustRadius',
+                    type=float,
+                    default=0.25,
+                    action='store',
+                    required=False,
+                    metavar='TRUST_RADIUS',
+                    help='Trust radius for the optimization.')
 parser.add_argument('--MaxDR',
                     type=float,
                     default=3e-2,
@@ -244,6 +251,13 @@ parser.add_argument('--RMSForce',
                     required=False,
                     metavar='RMS_DR',
                     help='Convergence criterion for the root mean square (RMS) force of the current configuration')
+parser.add_argument('--FixedAtoms',
+                    type='str',
+                    default=None,
+                    action='store',
+                    required=False,
+                    metavar='FIXED_ATOMS',
+                    help='List of atoms to be kept fixed during the optimization. Eg. 1..10,20,30..40')
 
 # Parse the arguments
 arg = parser.parse_args()
@@ -385,9 +399,15 @@ motion_dict = {
     ]
 }
 
+if arg.FixedAtoms is not None:
+    motion_dict['+fixed_atoms'] = {
+        "components_to_fix": "xyz",
+        "list": arg.FixedAtoms
+    }
+
 if arg.OptimizationType == 'cell_opt':
     motion_dict['+cell_opt'] = {
-        "+lbfgs": {"trust_radius": 0.25},
+        "+lbfgs": {"trust_radius": arg.TrustRadius},
         "optimizer": "lbfgs",
         "max_iter": arg.MaxIterations,
         "max_dr": arg.MaxDR,
@@ -403,7 +423,7 @@ if arg.OptimizationType == 'cell_opt':
 
 if arg.OptimizationType == 'geo_opt':
     motion_dict['+geo_opt'] = {
-        "+bfgs": {"trust_radius": 0.25},
+        "+bfgs": {"trust_radius": arg.TrustRadius},
         "max_iter": arg.MaxIterations,
         "max_dr": arg.MaxDR,
         "max_force": arg.MaxForce,

@@ -4,11 +4,9 @@
 # SPDX-License-Identifier: Apache2.0
 
 import os
-import json
 import gemmi
 
 import numpy as np
-from textwrap import dedent
 
 from ase.cell import Cell
 
@@ -201,86 +199,6 @@ def get_CM5AtomicCharges(output_filename: str) -> list[float]:
     return charges
 
 
-def saveCIF(cif_filename: str,
-            cell: float,
-            labels: list[str],
-            frac_x: list[float],
-            frac_y: list[float],
-            frac_z: list[float],
-            charges: list[float] = None) -> None:
-    """
-    Save the CIF file.
-
-    Parameters
-    ----------
-    cif_filename : str
-        Path to the CIF file.
-    cell : list
-        List of the cell parameters.
-    labels : list
-        List of the atomic labels.
-    frac_x : list
-        List of the atomic positions along the `a` vector.
-    frac_y : list
-        List of the atomic positions along the `b` vector.
-    frac_z : list
-        List of the atomic positions along the `c` vector.
-    charges : list
-        List of the atomic charges.
-
-    Returns
-    -------
-    None
-    """
-    chemical_name = cif_filename.split('/')[-1].split('.')[0]
-    cif_file = dedent(f"""\
-data_{chemical_name}
-_chemical_name_common                  '{chemical_name}'
-_cell_length_a                          {cell[0]:10.5f}
-_cell_length_b                          {cell[1]:10.5f}
-_cell_length_c                          {cell[2]:10.5f}
-_cell_angle_alpha                       {cell[3]:10.5f}
-_cell_angle_beta                        {cell[4]:10.5f}
-_cell_angle_gamma                       {cell[5]:10.5f}
-
-_symmetry_cell_setting          triclinic
-_symmetry_space_group_name_Hall 'P 1'
-_symmetry_space_group_name_H-M  'P 1'
-_symmetry_Int_Tables_number     1
-
-_symmetry_equiv_pos_as_xyz 'x,y,z'
-
-loop_
-   _atom_site_label
-   _atom_site_type_symbol
-   _atom_site_fract_x
-   _atom_site_fract_y
-   _atom_site_fract_z
-   _atom_site_charge
-""")
-
-    # Unique atoms in labes
-    symbols_number = {i: 0 for i in set(labels)}
-    symbols = []
-    for label in labels:
-        symbols_number[label] += 1
-        symbols.append(label + str(symbols_number[label]))
-
-    if charges is None:
-        for label, symbol, x, y, z in zip(labels, symbols, frac_x, frac_y, frac_z):
-            cif_file += "   {:3s}   {:6s}   {:15.10f}   {:15.10f}   {:15.10f}\n".format(
-                label, symbol, x, y, z
-                )
-    else:
-        for label, symbol, x, y, z, charge in zip(labels, symbols, frac_x, frac_y, frac_z, charges):
-            cif_file += "   {:3s}   {:6s}   {:15.10f}   {:15.10f}   {:15.10f}   {:10.7f}\n".format(
-                label, symbol, x, y, z, charge
-                )
-
-    with open(cif_filename, 'w') as f:
-        f.write(cif_file)
-
-
 def get_vibrational_data(CP2K_output_name) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     '''
     Get the vibrational data from the CP2K output file.
@@ -389,97 +307,6 @@ def get_MoldenData(OutputFolder, Frameworkname):
     modes = [i + 1 for i in range(len(intensity))]
 
     return atom_labels, atom_pos, vibrations, modes, eigenVectors, intensity, freq_list
-
-
-def saveVibrationalVectors(OutputFolder, Frameworkname):
-    '''
-    Get the vibrational vectors from the CP2K output file.
-    '''
-
-    atom_labels, _, vibrations, _, _, _, freq_list = get_MoldenData(OutputFolder, Frameworkname)
-
-    # Get the cell parameters from cif file
-    CellParameters = get_CellParameters(Frameworkname + '.cif')
-    CellMatrix = Cell.fromcellpar(CellParameters).tolist()
-
-    os.makedirs(os.path.join(OutputFolder, 'VIBRATION_FILES'), exist_ok=True)
-
-    for i, vib in enumerate(vibrations):
-
-        axsf_filename = os.path.join(os.path.join(OutputFolder, 'VIBRATION_FILES'),
-                                     f'VIBRATIONS-{i}-{float(freq_list[i])}.axsf')
-        axsf_file = open(axsf_filename, 'w')
-
-        axsf_file.write('CRYSTAL\n')
-        axsf_file.write('PRIMVEC  \n')
-        axsf_file.write(f'  {CellMatrix[0][0]:15.10f}    {CellMatrix[0][1]:15.10f}    {CellMatrix[0][2]:15.10f}\n')
-        axsf_file.write(f'  {CellMatrix[1][0]:15.10f}    {CellMatrix[1][1]:15.10f}    {CellMatrix[1][2]:15.10f}\n')
-        axsf_file.write(f'  {CellMatrix[2][0]:15.10f}    {CellMatrix[2][1]:15.10f}    {CellMatrix[2][2]:15.10f}\n')
-        axsf_file.write('PRIMCOORD    1\n')
-        axsf_file.write(f'      {len(atom_labels)}   1\n')
-        for j, atom in enumerate(atom_labels):
-            axsf_file.write(f' {atom} {vib[j]}\n')
-
-        axsf_file.close()
-
-    return None
-
-
-def saveChemicalJSON(OutputFolder, Frameworkname):
-
-    frequency, IR_intensity, RAMAN_intensity = get_vibrational_data(
-        os.path.join(OutputFolder, 'simulation_Vibrations.out')
-        )
-
-    atom_labels, atom_pos, _, modes, eigenVectors, _, _ = get_MoldenData(OutputFolder,
-                                                                         Frameworkname)
-
-    # Convert atom_labels to atom_number
-    atom_number = [gemmi.Element(atom).atomic_number for atom in atom_labels]
-
-    # Flatten the atom_pos list
-    atom_pos = [i for sublist in atom_pos for i in sublist]
-
-    # Get the cell parameters from cif file
-    CellParameters = get_CellParameters(Frameworkname + '.cif')
-    CellMatrix = Cell.fromcellpar(CellParameters).flatten().tolist()
-
-    formula = ' '.join([f'{atom}{atom_labels.count(atom)}' for atom in set(atom_labels)])
-
-    ChemJSON = {
-        "chemicalJson": 1,
-        "name": Frameworkname,
-        "formula": formula,
-        "unitCell": {
-            "a": CellParameters[0],
-            "b": CellParameters[1],
-            "c": CellParameters[2],
-            "alpha": CellParameters[3],
-            "beta":  CellParameters[4],
-            "gamma": CellParameters[5],
-            "cellVectors": CellMatrix
-        },
-        "atoms": {
-            "elements": {
-                "type": atom_labels,
-                "number": atom_number
-                },
-            "coords": {
-                "3d": atom_pos
-                }
-        },
-        'vibrations': {
-            'eigenVectors': eigenVectors,
-            'frequencies': list(frequency),
-            'intensities': list(IR_intensity),
-            'ramanIntensities': list(RAMAN_intensity),
-            'modes': modes
-        }
-        }
-
-    # Save ChemJSON as a json file
-    with open(os.path.join(OutputFolder, f'{Frameworkname}.cjson'), 'w') as f:
-        json.dump(ChemJSON, f, indent=4)
 
 
 def lorentzian(x, x0, gamma) -> np.ndarray[float]:

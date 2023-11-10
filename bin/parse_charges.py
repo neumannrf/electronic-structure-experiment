@@ -9,8 +9,8 @@ import argparse
 from modules.calculate_properties import (get_AtomicPositions,
                                           get_CellParameters,
                                           get_CM5AtomicCharges,
-                                          get_DDECAtomicCharges,
-                                          saveCIF)
+                                          get_DDECAtomicCharges)
+from modules.io_files import saveCIF
 
 # Required parameters
 parser = argparse.ArgumentParser(description='Create the Chargemol simulation input.')
@@ -60,20 +60,22 @@ CellParameters = get_CellParameters(cif_filename)
 AtomicTypes, PosX, PosY, PosZ = get_AtomicPositions(cif_filename)
 
 # Write the DDEC charges to file
-saveCIF(os.path.join(arg.output_folder, arg.FrameworkName + '_DDEC.cif'),
+saveCIF(arg.FrameworkName + '_DDEC',
         CellParameters,
         AtomicTypes,
         PosX,
         PosY,
         PosZ,
-        DDEC_Charges)
+        DDEC_Charges,
+        arg.output_folder)
 
 if arg.CM5:
     # Write the CM5 charges to file
-    saveCIF(os.path.join(arg.output_folder, arg.FrameworkName + '_CM5.cif'),
+    saveCIF(arg.FrameworkName + '_CM5',
             CellParameters,
             AtomicTypes,
             PosX,
             PosY,
             PosZ,
-            CM5_Charges)
+            CM5_Charges,
+            arg.output_folder)
