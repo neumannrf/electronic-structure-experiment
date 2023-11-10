@@ -13,7 +13,9 @@ from textwrap import dedent
 from ase.cell import Cell
 
 from modules.atom_data import ATOMIC_NUMBER
-from modules.calculate_properties import get_MoldenData, get_vibrational_data, get_CellParameters
+from modules.calculate_properties import (get_MoldenData,
+                                          get_vibrational_data,
+                                          get_CellParameters)
 
 
 def readChemicalJSON(FrameworkName: str, OutputFolder: str = '.', **kwargs):
@@ -47,7 +49,7 @@ def readChemicalJSON(FrameworkName: str, OutputFolder: str = '.', **kwargs):
 
     elif 'cellVectors' in ChemJSON['unitCell']:
         CellMatrix = ChemJSON['unitCell']['cellVectors']
-        aseCell = Cell.frommatrix(CellMatrix)
+        aseCell = Cell(CellMatrix)
         CellParameters = aseCell.cellpar()
 
     else:
@@ -58,9 +60,19 @@ def readChemicalJSON(FrameworkName: str, OutputFolder: str = '.', **kwargs):
     labels = ChemJSON['atoms']['elements']['type']
 
     # Get the fractional coordinates
-    frac_x = ChemJSON['atoms']['coords']['3dFractional'][0::3]
-    frac_y = ChemJSON['atoms']['coords']['3dFractional'][1::3]
-    frac_z = ChemJSON['atoms']['coords']['3dFractional'][2::3]
+    if '3dFractional' in ChemJSON['atoms']['coords']:
+        frac_x = ChemJSON['atoms']['coords']['3dFractional'][0::3]
+        frac_y = ChemJSON['atoms']['coords']['3dFractional'][1::3]
+        frac_z = ChemJSON['atoms']['coords']['3dFractional'][2::3]
+
+    elif '3d' in ChemJSON['atoms']['coords']:
+        cart_x = ChemJSON['atoms']['coords']['3dFractional'][0::3]
+        cart_y = ChemJSON['atoms']['coords']['3dFractional'][1::3]
+        cart_z = ChemJSON['atoms']['coords']['3dFractional'][2::3]
+
+        # Convert fractional coordinates to cartesian
+        cartPositions = np.array([cart_x, cart_y, cart_z]).T
+        frac_x, frac_y, frac_z = aseCell.scaled_positions(cartPositions).T
 
     # Get the charges
     if 'partialCharges' in ChemJSON:
@@ -177,7 +189,7 @@ def readXSF(FrameworkName: str, OutputFolder: str = '.', **kwargs):
     # Get the cell parameters
     cellMatrix = np.array([lines[2].split(), lines[3].split(), lines[4].split()]).astype(float)
 
-    aseCell = Cell.frommatrix(cellMatrix)
+    aseCell = Cell(cellMatrix)
 
     cellParameters = aseCell.cellpar()
 
@@ -191,7 +203,10 @@ def readXSF(FrameworkName: str, OutputFolder: str = '.', **kwargs):
     cart_y = [float(i.split()[2]) for i in atoms]
     cart_z = [float(i.split()[3]) for i in atoms]
 
-    frac_x, frac_y, frac_z = aseCell.get_fractional_coords(np.array([cart_x, cart_y, cart_z]).T).T
+    cartPositions = np.array([cart_x, cart_y, cart_z]).T
+
+    # Convert fractional coordinates to cartesian
+    frac_x, frac_y, frac_z = aseCell.scaled_positions(cartPositions).T
 
     return cellParameters, atomLabels, frac_x, frac_y, frac_z, None, None
 
@@ -293,7 +308,7 @@ def readCIF(FrameworkName: str,
 
 
 def saveCIF(FrameworkName: str,
-            cell: float,
+            CellParameters: float,
             labels: list[str],
             frac_x: list[float],
             frac_y: list[float],
@@ -326,12 +341,12 @@ def saveCIF(FrameworkName: str,
     cif_file = dedent(f"""\
 data_{FrameworkName}
 _chemical_name_common                  '{FrameworkName}'
-_cell_length_a                          {cell[0]:10.5f}
-_cell_length_b                          {cell[1]:10.5f}
-_cell_length_c                          {cell[2]:10.5f}
-_cell_angle_alpha                       {cell[3]:10.5f}
-_cell_angle_beta                        {cell[4]:10.5f}
-_cell_angle_gamma                       {cell[5]:10.5f}
+_cell_length_a                          {CellParameters[0]:10.5f}
+_cell_length_b                          {CellParameters[1]:10.5f}
+_cell_length_c                          {CellParameters[2]:10.5f}
+_cell_angle_alpha                       {CellParameters[3]:10.5f}
+_cell_angle_beta                        {CellParameters[4]:10.5f}
+_cell_angle_gamma                       {CellParameters[5]:10.5f}
 
 _symmetry_cell_setting          triclinic
 _symmetry_space_group_name_Hall 'P 1'
@@ -341,13 +356,15 @@ _symmetry_Int_Tables_number     1
 _symmetry_equiv_pos_as_xyz 'x,y,z'
 
 loop_
-   _atom_site_label
    _atom_site_type_symbol
+   _atom_site_label
    _atom_site_fract_x
    _atom_site_fract_y
    _atom_site_fract_z
-   _atom_site_charge
 """)
+
+    if charges is not None:
+        cif_file += '   _atom_site_charge\n'
 
     # Unique atoms in labes
     symbols_number = {i: 0 for i in set(labels)}
@@ -386,36 +403,36 @@ def readGJF(FrameworkName: str, OutputFolder: str, **kwargs):
     with open(os.path.join(OutputFolder, FrameworkName + '.gjf'), 'r') as f:
         lines = f.read().splitlines()
 
+    # Remove empty lines
+    lines = [line for line in lines if len(line.split()) > 0]
+
     # Get the cell parameters
     cellMatrix = []
 
     for line in lines:
         if 'Tv' in line:
-            cellMatrix.append(line.split()[1:].split())
+            cellMatrix.append(line.split()[1:])
 
     cellMatrix = np.array(cellMatrix).astype(float)
 
     atomLabels = []
-    carPositions = []
+    cartPositions = []
     # Get the atomic labels
     for line in lines:
         if line.split()[0] in ATOMIC_NUMBER.keys():
             atomLabels.append(line.split()[0])
-            carPositions.append(line.split()[1:])
+            cartPositions.append(line.split()[1:])
 
-    carPositions = np.array(carPositions).astype(float)
+    cartPositions = np.array(cartPositions).astype(float)
 
     # Convert cartesian coordinates to fractional
-    aseCell = Cell.frommatrix(cellMatrix)
+    aseCell = Cell(cellMatrix)
+    frac_x, frac_y, frac_z = aseCell.scaled_positions(cartPositions).T
 
     # Get the cell matrix
     cellParameters = aseCell.cellpar()
 
-    FracCoords = aseCell.get_scaled_positions(carPositions)
-
-    xPos, yPos, zPos = FracCoords.T
-
-    return cellParameters, atomLabels, xPos, yPos, zPos, None, None
+    return cellParameters, atomLabels, frac_x, frac_y, frac_z, None, None
 
 
 def saveGJF(FrameworkName: str,
@@ -461,10 +478,13 @@ Title Card Required
 0 1
 """)
     for i, atom in enumerate(labels):
-        gjf_file += f' {atom} {carCoords[i][0]:15.10f} {carCoords[i][1]:15.10f} {carCoords[i][2]:15.10f}\n'
+        gjf_file += f' {atom:3} {carCoords[i][0]:15.10f} {carCoords[i][1]:15.10f} {carCoords[i][2]:15.10f}\n'
 
     for i in range(3):
         gjf_file += f' Tv {cellMatrix[i][0]:15.10f} {cellMatrix[i][1]:15.10f} {cellMatrix[i][2]:15.10f}\n'
+
+    with open(os.path.join(OutputFolder, f'{FrameworkName}.gjf'), 'w') as f:
+        f.write(gjf_file)
 
 
 def saveVibrationalVectors(OutputFolder, Frameworkname):

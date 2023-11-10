@@ -63,7 +63,8 @@ save_dict = {
     'xsf': saveXSF,
 }
 
-CellParameters, labels, frac_x, frac_y, frac_z, charges, charge_type = read_dict[arg.InputFormat](arg.FrameworkName)
+CellParameters, labels, frac_x, frac_y, frac_z, charges, charge_type = read_dict[arg.InputFormat](arg.FrameworkName,
+                                                                                                  arg.output_folder)
 
 save_dict[arg.OutputFormat](FrameworkName=arg.FrameworkName,
                             CellParameters=CellParameters,
