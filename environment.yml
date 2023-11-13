@@ -1,4 +1,4 @@
-name: electronic-structure-experiment
+name: ese
 channels:
   - conda-forge
 dependencies:
