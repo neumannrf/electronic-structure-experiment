@@ -1,6 +1,5 @@
 #!/usr/bin/env -S python -B
 
-# Copyright IBM Corp. 2023
 # SPDX-License-Identifier: Apache2.0
 
 import argparse
