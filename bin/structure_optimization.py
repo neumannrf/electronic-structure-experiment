@@ -252,7 +252,7 @@ parser.add_argument('--RMSForce',
                     metavar='RMS_DR',
                     help='Convergence criterion for the root mean square (RMS) force of the current configuration')
 parser.add_argument('--FixedAtoms',
-                    type='str',
+                    type=str,
                     default=None,
                     action='store',
                     required=False,
