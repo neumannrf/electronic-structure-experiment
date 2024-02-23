@@ -56,7 +56,10 @@ def readChemicalJSON(FrameworkName: str, OutputFolder: str = '.', **kwargs):
         CellParameters = None
 
     # Get the atomic labels
-    labels = ChemJSON['atoms']['elements']['type']
+    if 'type' in ChemJSON['atoms']['elements']:
+        labels = ChemJSON['atoms']['elements']['type']
+    elif 'number' in ChemJSON['atoms']['elements']:
+        labels = [gemmi.Element(i).name for i in ChemJSON['atoms']['elements']['number']]
 
     # Get the fractional coordinates
     if '3dFractional' in ChemJSON['atoms']['coords']:
@@ -81,6 +84,9 @@ def readChemicalJSON(FrameworkName: str, OutputFolder: str = '.', **kwargs):
         else:
             chargeType = list(ChemJSON['partialCharges'].keys())[0]
         charges = ChemJSON['partialCharges'][chargeType]
+    else:
+        charges = None
+        chargeType = None
 
     return CellParameters, labels, frac_x, frac_y, frac_z, charges, chargeType
 
