@@ -491,7 +491,7 @@ def saveVibrationalVectors(OutputFolder, Frameworkname):
     Get the vibrational vectors from the CP2K output file.
     '''
 
-    atom_labels, _, vibrations, _, _, _, freq_list = get_MoldenData(OutputFolder, Frameworkname)
+    atom_labels, atom_pos, vibrations, _, _, _, freq_list = get_MoldenData(OutputFolder, Frameworkname)
 
     # Get the cell parameters from cif file
     CellParameters = get_CellParameters(Frameworkname + '.cif')
@@ -513,7 +513,7 @@ def saveVibrationalVectors(OutputFolder, Frameworkname):
         axsf_file.write('PRIMCOORD    1\n')
         axsf_file.write(f'      {len(atom_labels)}   1\n')
         for j, atom in enumerate(atom_labels):
-            axsf_file.write(f' {atom} {vib[j]}\n')
+            axsf_file.write(f' {atom:3} {atom_pos[j][0]:9.5f}  {atom_pos[j][1]:9.5f}  {atom_pos[j][2]:9.5f} {vib[j]}\n')
 
         axsf_file.close()
 
