@@ -520,6 +520,54 @@ def saveVibrationalVectors(OutputFolder, Frameworkname):
     return None
 
 
+def save_axsf(output_folder,
+              FileName,
+              cellMatrix,
+              atomTypes,
+              cartPos,
+              shiftVecs):
+    '''
+    Save the atomic positions and the shift vectors to an axsf file.
+
+    Parameters
+    ----------
+    output_folder : str
+        Path to the output folder
+    FrameworkName : str
+        Name of the framework
+    cellMatrix : list
+        3 x 3 list of the cell matrix
+    atomTypes : list
+        N x 3 list of the atomic types
+    cartPos : list
+        N x 3 list of the atomic positions in cartesian coordinates
+    shiftVecs : list
+        M x N x 3 array of the shift vectors with M the number of modes and N the number of atoms
+    '''
+    axsf_txt = ''
+    if len(shiftVecs) > 1:
+        axsf_txt += f'ANIMSTEPS {len(shiftVecs)}\n'
+    axsf_txt += 'CRYSTAL\n'
+    axsf_txt += 'PRIMVEC\n'
+    for i in range(3):
+        axsf_txt += f' {cellMatrix[i][0]: 12.7f}   {cellMatrix[i][1]: 12.7f}   {cellMatrix[i][2]: 12.7f}\n'
+
+    for i in range(len(shiftVecs)):
+        axsf_txt += f'PRIMCOORD {i+1}\n'
+        axsf_txt += f'{len(atomTypes)} 1\n'
+        for j in range(len(atomTypes)):
+            axsf_txt += '{:3} {:12.7f} {:12.7f} {:12.7f} {:12.7f} {:12.7f} {:12.7f}\n'.format(atomTypes[j],
+                                                                                              cartPos[j][0],
+                                                                                              cartPos[j][1],
+                                                                                              cartPos[j][2],
+                                                                                              shiftVecs[i][j][0],
+                                                                                              shiftVecs[i][j][1],
+                                                                                              shiftVecs[i][j][2])
+
+    with open(os.path.join(output_folder, f'{FileName}.axsf'), 'w') as f:
+        f.write(axsf_txt)
+
+
 def saveVibrationalChemicalJSON(OutputFolder, Frameworkname):
 
     frequency, IR_intensity, RAMAN_intensity = get_vibrational_data(

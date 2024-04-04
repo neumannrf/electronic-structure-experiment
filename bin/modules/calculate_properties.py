@@ -5,10 +5,14 @@
 
 import os
 import gemmi
-
 import numpy as np
+from types import SimpleNamespace
 
 from ase.cell import Cell
+from modules.atom_data import BASIS_SET, PSEUDO_POTENTIALS
+from cp2k_input_tools.generator import CP2KInputGenerator
+
+from phonopy.harmonic.force_constants import similarity_transformation
 
 
 def calculate_Perpendicular_Widths(cif_filename: str) -> tuple[float, float, float]:
@@ -345,3 +349,590 @@ def getStructuresFromOptimization(outputfolder, FrameworkName) -> list:
         structure_list.append([atom_labels, atom_pos])
 
     return structure_list
+
+
+def get_spg_class(spgnum) -> str:
+    '''
+    Get the space group class from the space group number.
+    Parameters
+    ----------
+    spgnum : int
+        Space group number
+
+    Returns
+    -------
+    spgclass : str
+        Space group class
+    '''
+    # Triclinic or monoclinic or orthorhombic
+    spgclass = ""
+    if (spgnum < 3):
+        spgclass = "triclinic"
+    elif (spgnum > 3 and spgnum < 16):
+        spgclass = "monoclinic"
+    elif (spgnum > 15 and spgnum < 75):
+        spgclass = "orthorhombic"
+    elif (spgnum > 74 and spgnum < 143):
+        spgclass = "tetragonal"
+    elif (spgnum > 142 and spgnum < 168):
+        spgclass = "trigonal"
+    elif (spgnum > 167 and spgnum < 195):
+        spgclass = "hexagonal"
+    elif (spgnum > 194):
+        spgclass = "cubic"
+
+    return spgclass
+
+
+def get_reciprocal_vectors(CellMatrix) -> tuple[float, float, float]:
+    '''
+    Get the reciprocal vectors of a cell given in cell parameters of cell vectors
+    ----------
+    CellMatrix : array
+        (3,1) array for cell vectors
+    Returns
+    -------
+    b1 : array
+        (3,1) array containing b_1 vector in the reciprocal space
+    b2 : array
+        (3,1) array containing b_2 vector in the reciprocal space
+    b3 : array
+        (3,1) array containing b_3 vector in the reciprocal space
+    '''
+
+    v1, v2, v3 = CellMatrix
+
+    vol = np.dot(v1, np.cross(v2, v3))
+
+    b1 = 2 * np.pi * np.cross(v2, v3) / vol
+    b2 = 2 * np.pi * np.cross(v3, v1) / vol
+    b3 = 2 * np.pi * np.cross(v1, v2) / vol
+
+    return b1, b2, b3
+
+
+def get_kgrid(cell, dist=0.3) -> tuple[float, float, float]:
+    '''Get the k-points grid in the reciprocal space with a given distance for a
+    cell given in cell parameters of cell vectors.
+    ----------
+    cell : array
+        (3,1) array for cell vectors or (6,1) array for cell parameters
+    distance : float
+        distance between the points in the reciprocal space
+    Returns
+    -------
+    kx : int
+        Number of points in the x direction on reciprocal space
+    ky : int
+        Number of points in the y direction on reciprocal space
+    kz : int
+        Number of points in the z direction on reciprocal space
+    '''
+
+    b1, b2, b3 = get_reciprocal_vectors(cell)
+
+    b = np.array([np.linalg.norm(b1),
+                  np.linalg.norm(b2),
+                  np.linalg.norm(b3)])
+
+    kx = np.ceil(b[0]/dist).astype(int)
+    ky = np.ceil(b[1]/dist).astype(int)
+    kz = np.ceil(b[2]/dist).astype(int)
+
+    return kx, ky, kz
+
+
+def create_input_file(FrameworkName: str,
+                      output_folder: str,
+                      **kwargs):
+    """
+    Create the input file for CP2K
+
+    Parameters
+    ----------
+    FrameworkName : str
+        Name of the framework
+    output_folder : str
+        Path to the output folder
+    """
+
+    CalcDict = {
+        'FrameworkName': FrameworkName.split('.')[0],
+        'Charge': 0,
+        'Multiplicity': 1,
+        'CalcType': 'energy_force',  # Can be 'energy_force', 'cell_opt', 'geo_opt', 'md', or 'normal_modes'
+        'UseOT': False,
+        'UseSmearing': False,
+        'SmearingMethod': 'fermi_dirac',  # Can be 'fermi_dirac' or 'energy_window'
+        'ElectronicTemperature': 300,
+        'WindowSize': 0.1,
+        'AddedMOs': 0,
+        'MixingMethod': 'broyden_mixing',  # Can be 'direct_p_mixing', 'broyden_mixing_new', or 'kerker_mixing'
+        'MixingAlpha': 0.2,
+        'MaxSCFycles': 30,
+        'MaxOuterSCFycles': 10,
+        'EPSDefault': 1e-8,
+        'PWCutoff': 1200,
+        'NGrid': 5,
+        'RelativeCutOff': 60,
+        'Functional': 'PBE',  # Can be 'PBE', 'XTB', or 'PBE0'
+        'Parametrization': 'ORIG',  # Can be 'ORIG', 'PBESOL', or 'REVPBE'
+        'DispersionCorrection': 'DFTD3',  # Can be None, 'DFTD2', 'DFTD3', or 'DFTD3(BJ)'
+        'CheckAtomicCharges': True,
+        'BasisSet': 'DZVP',  # Can be 'DZVP', 'TZVP', or 'TZV2P'
+        'SCFGuess': 'atomic',  # Can be 'atomic', 'restart', 'core', 'random', 'sparse', or 'mopac'
+        'SCFConvergence': 1e-8,
+        'CP2KDataDir': os.environ.get("CP2K_DATA_DIR"),
+        'KeepSymmetry': False,
+        'KeepSpaceGroup': False,
+        'KeepAngles': False,
+        'MaxIterations': 100,
+        'Restart': False,
+        'MaxIterations': 100,
+        'MaxDR': 1e-3,
+        'MaxForce': 1e-3,
+        'RMSDR': 1e-3,
+        'RMSForce': 1e-3,
+        'UseScalapack': False,
+        'CellParameters': None,
+        'CellMatrix': None,
+        'AtomicTypes': None,
+        'FracX': None,
+        'FracY': None,
+        'FracZ': None,
+        'CartX': None,
+        'CartY': None,
+        'CartZ': None,
+        'ProcsPerReplica': 4,
+        'dX': 0.001,
+        'CalculateRaman': False,
+        'CalculateIR': False,
+        'Ensemble': 'NPT_F',
+        'Temperature': 400,
+        'TimeStep': 0.5,
+        'MDSteps': 100,
+        'Pressure': 1,
+        'TimeCon': 1000,
+        'KPoints': False,
+        'RecDist': 0.3
+    }
+
+    # TO-DO: Add conversion from frac to cart and vice versa
+
+    # Update the dictionary with the user input
+    CalcDict.update(kwargs)
+
+    calcPar = SimpleNamespace(**CalcDict)
+
+    Coord_Dict = {
+        'scaled': False,
+        '*': ['{:3} {:11.6f} {:11.6f} {:11.6f}'.format(calcPar.AtomicTypes[i],
+                                                       calcPar.CartX[i],
+                                                       calcPar.CartY[i],
+                                                       calcPar.CartZ[i]) for i in range(len(calcPar.AtomicTypes))]
+                    }
+
+    Kind_List = []
+
+    for specie in set(calcPar.AtomicTypes):
+        Kind_List.append(
+            {
+                "_": specie,
+                'element': specie,
+                'potential': PSEUDO_POTENTIALS[specie],
+                'basis_set': BASIS_SET[calcPar.BasisSet][specie]
+            }
+        )
+
+    if calcPar.CellParameters is not None:
+        Cell_Dict = {
+            'abc': [calcPar.CellParameters[0], calcPar.CellParameters[1], calcPar.CellParameters[2]],
+            'alpha_beta_gamma': [calcPar.CellParameters[3], calcPar.CellParameters[4], calcPar.CellParameters[5]],
+            'periodic': 'XYZ'
+            }
+    elif calcPar.CellMatrix is not None:
+        Cell_Dict = {
+            'a': [calcPar.CellMatrix[0][0], calcPar.CellMatrix[0][1], calcPar.CellMatrix[0][2]],
+            'b': [calcPar.CellMatrix[1][0], calcPar.CellMatrix[1][1], calcPar.CellMatrix[1][2]],
+            'c': [calcPar.CellMatrix[2][0], calcPar.CellMatrix[2][1], calcPar.CellMatrix[2][2]],
+            'periodic': 'XYZ'
+            }
+    else:
+        raise ValueError('Either the cell parameters or the cell matrix must be provided')
+
+    Global_Dict = {
+        "project_name": calcPar.FrameworkName,
+        "run_type": calcPar.CalcType.lower(),
+    }
+
+    if calcPar.UseScalapack:
+        Global_Dict["preferred_diag_library"] = "scalapack"
+
+    Vibrational_Analysis_Dict = {
+        'print': {'program_run_info': {'_': 'ON'}},
+        'nproc_rep': calcPar.ProcsPerReplica,
+        'dx': calcPar.dX,
+        'fully_periodic': True,
+        'intensities': True
+        }
+
+    Force_Eval_Dict = {
+                "+dft": {
+                    "+qs": {
+                        'eps_default': calcPar.EPSDefault,
+                        },
+                    "+print": {
+                        "+hirshfeld": {"_": "OFF"},
+                        "+lowdin": {"_": "OFF"},
+                        "+mulliken": {"_": "OFF"},
+                    },
+                    "+scf": {
+                        "scf_guess": calcPar.SCFGuess,
+                        "max_scf": calcPar.MaxSCFycles,
+                        "eps_scf": calcPar.SCFConvergence,
+                        "+mixing": {"method": calcPar.MixingMethod,
+                                    "alpha": calcPar.MixingAlpha},
+                        "+outer_scf": {"max_scf": calcPar.MaxOuterSCFycles,
+                                       "eps_scf": calcPar.SCFConvergence}
+                    },
+                    "charge": calcPar.Charge,
+                    "multiplicity": calcPar.Multiplicity
+                },
+                "+subsys": {
+                    "+cell": Cell_Dict,
+                    "+coord": Coord_Dict,
+                    "+print": {'+symmetry': {'symmetry_elements': True}},
+                },
+                "stress_tensor": "analytical"
+            }
+
+    if calcPar.KPoints:
+        if calcPar.KPoints is True:
+            calcPar.KPoints = get_kgrid(calcPar.CellMatrix, dist=calcPar.RecDist)
+
+        Force_Eval_Dict["+dft"]['+kpoints'] = {
+            "scheme": ('MONKHORST-PACK', str(calcPar.KPoints[0]), str(calcPar.KPoints[1]), str(calcPar.KPoints[2])),
+            "symmetry": True,
+            "full_grid": True,
+            "verbose": True,
+            "parallel_group_size": -1,
+            "eps_geo": 1e-3,
+            }
+
+        if calcPar.KPoints == 'auto':
+            calcPar.KPoints = get_kgrid(calcPar.CellMatrix, dist=calcPar.RecDist)
+
+    if calcPar.CalcType.lower() == 'energy_force':
+        Force_Eval_Dict['+print'] = {
+            "+forces": {"filename": "forces", "_": "ON"},
+            "+stress_tensor": {"_": "ON"}
+            }
+
+    if calcPar.Functional == 'XTB':
+        Force_Eval_Dict['+dft']['+qs'] = {
+                        'method': 'XTB',
+                        '+XTB': {
+                            'check_atomic_charges': calcPar.CheckAtomicCharges,
+                            'do_ewald': True,
+                            '+parameter': {'dispersion_parameter_file': 'dftd3.dat'},
+                        },
+                    }
+
+    if calcPar.Functional == 'PBE':
+        Force_Eval_Dict["+dft"]['+xc'] = {
+                        "+xc_functional": {
+                            "+pbe": {"parametrization": calcPar.Parametrization}
+                            },
+                        "+vdw_potential": {
+                            "potential_type": "pair_potential",
+                            "+pair_potential": {
+                                "type": calcPar.DispersionCorrection,
+                                "reference_functional": calcPar.Functional,
+                                "r_cutoff": 16,
+                                "parameter_file_name": "dftd3.dat"
+                                }
+                            }
+                        }
+        Force_Eval_Dict["+dft"]['+mgrid'] = {
+            'cutoff': calcPar.PWCutoff,
+            'ngrids': calcPar.NGrid,
+            'rel_cutoff': calcPar.RelativeCutOff
+            }
+
+        Force_Eval_Dict["+dft"]["basis_set_file_name"] = [
+            "BASIS_MOLOPT",
+            "BASIS_MOLOPT_UZH"
+            ]
+
+        Force_Eval_Dict["+dft"]["potential_file_name"] = "GTH_POTENTIALS"
+
+        Force_Eval_Dict["+subsys"]["+kind"] = Kind_List
+
+    if calcPar.Functional == 'PBE0':
+        Force_Eval_Dict["+dft"]['+xc'] = {
+                        "+xc_functional": {
+                            "_": calcPar.Functional
+                        },
+                        "+vdw_potential": {
+                            "potential_type": "pair_potential",
+                            "+pair_potential": {
+                                "type": calcPar.DispersionCorrection,
+                                "reference_functional": calcPar.Functional,
+                                "r_cutoff": 16,
+                                "parameter_file_name": "dftd3.dat"
+                                }
+                            }
+                        }
+        Force_Eval_Dict["+dft"]['+mgrid'] = {
+            'cutoff': calcPar.PWCutoff,
+            'ngrids': calcPar.NGrid,
+            'rel_cutoff': calcPar.RelativeCutOff
+            }
+
+        Force_Eval_Dict["+dft"]["basis_set_file_name"] = [
+            "BASIS_MOLOPT",
+            "BASIS_MOLOPT_UZH"
+            ]
+
+        Force_Eval_Dict["+dft"]["potential_file_name"] = "GTH_POTENTIALS"
+
+        Force_Eval_Dict["+subsys"]["+kind"] = Kind_List
+
+    if calcPar.UseOT:
+        Force_Eval_Dict["+dft"]['+scf']["+ot"] = {"minimizer": "DIIS",
+                                                  "n_diis": 7,
+                                                  "preconditioner": "FULL_SINGLE_INVERSE"}
+
+    if calcPar.UseSmearing:
+        if calcPar.SmearingMethod == 'fermi_dirac':
+            Force_Eval_Dict["+dft"]['+scf']['+smear'] = {
+                "method": 'FERMI_DIRAC',
+                "electronic_temperature": calcPar.ElectronicTemperature
+            }
+        elif calcPar.SmearingMethod == 'energy_window':
+            Force_Eval_Dict["+dft"]['+scf']['+smear'] = {
+                "method": 'energy_window',
+                "width": calcPar.WindowSize
+            }
+        if calcPar.AddedMOs == 0:
+            calcPar.AddedMOs = 50
+
+        Force_Eval_Dict["+dft"]['+scf']['added_mos'] = calcPar.AddedMOs
+
+    motion_dict = {
+        "+print": [
+            {
+                "+forces": {"+each": {"cell_opt": 1, "geo_opt": 1, "md": 1}},
+                "+cell": {"+each": {"cell_opt": 1, "geo_opt": 1, "md": 1}},
+                "+trajectory": {"+each": {"cell_opt": 1, "geo_opt": 1, "md": 1}},
+                "+velocities": {"+each": {"cell_opt": 1, "geo_opt": 1, "md": 1}},
+                "+stress": {"+each": {"cell_opt": 1, "geo_opt": 1, "md": 1}},
+                "+restart": {"+each": {"cell_opt": 1, "geo_opt": 1, "md": 1}, "backup_copies": 0},
+                "+restart_history": {"_": "OFF"}
+            }
+        ]
+    }
+
+    if calcPar.CalcType.lower() == 'cell_opt':
+        motion_dict['+cell_opt'] = {
+            "+lbfgs": {"trust_radius": 0.25},
+            "optimizer": "lbfgs",
+            "max_iter": calcPar.MaxIterations,
+            "max_dr": calcPar.MaxDR,
+            "max_force": calcPar.MaxForce,
+            "rms_dr": calcPar.RMSDR,
+            "rms_force": calcPar.RMSForce
+        }
+
+        if calcPar.KeepSymmetry:
+            motion_dict['+cell_opt']['keep_symmetry'] = True
+            motion_dict['+cell_opt']['keep_space_group'] = True
+            motion_dict['+cell_opt']['keep_angles'] = True
+
+    if calcPar.CalcType.lower() == 'geo_opt':
+        motion_dict['+geo_opt'] = {
+            "+bfgs": {"trust_radius": 0.25},
+            "max_iter": calcPar.MaxIterations,
+            "max_dr": calcPar.MaxDR,
+            "max_force": calcPar.MaxForce,
+            "rms_dr": calcPar.RMSDR,
+            "rms_force": calcPar.RMSForce
+        }
+
+    if calcPar.CalcType.lower() == 'md':
+        motion_dict['+md'] = {
+            "ensemble": calcPar.Ensemble,
+            "temperature": calcPar.Temperature,
+            "timestep": calcPar.TimeStep,
+            "steps": calcPar.MDSteps,
+            "+barostat": {
+                "pressure": calcPar.Pressure,
+                "timecon": calcPar.TimeCon
+            },
+            "+thermostat": {
+                "type": 'CSVR',
+                "+csvr": {'timecon': 0.1},
+            }
+        }
+
+    if calcPar.CalculateRaman:
+        Force_Eval_Dict["+properties"] = {
+            'linres': {'polar': {'do_raman': True},
+                       'max_iter': 200,
+                       'preconditioner': 'full_all',
+                       'eps': 1e-08
+                       },
+            }
+
+    if calcPar.CalculateIR:
+        Force_Eval_Dict['+dft']['+print']['+moments'] = {"periodic": True}
+
+    input_dict = {
+        "+global": Global_Dict,
+        "+force_eval": [Force_Eval_Dict]
+    }
+
+    if calcPar.CalcType.lower() in ['cell_opt', 'geo_opt', 'md']:
+        input_dict['+motion'] = motion_dict
+
+    if calcPar.CalcType.lower() == 'normal_modes':
+        input_dict['+vibrational_analysis'] = Vibrational_Analysis_Dict
+
+    if calcPar.Restart:
+        input_dict['+ext_restart'] = {
+            "restart_file_name": f"{calcPar.FrameworkName}-1.restart"
+        }
+
+    generator = CP2KInputGenerator()
+
+    with open(os.path.join(output_folder, FrameworkName), "w") as fhandle:
+        for line in generator.line_iter(input_dict):
+            fhandle.write(f"{line}\n")
+
+
+def get_forces(FrameworkName, output_folder):
+    """ Get the CP2K forces from the output file in atomic units [Hartree/a.u.]
+
+    Parameters
+    ----------
+    FrameworkName : str
+        Name of the framework
+    output_folder : str
+        Path to the output folder
+
+    Returns
+    -------
+    forces : np.ndarray
+        Nx3 Array of the forces in atomic units [a.u.]
+    """
+
+    with open(os.path.join(output_folder, f"{FrameworkName}-forces-1_0.xyz"), "r") as f:
+        lines = f.read().splitlines()
+
+    forces = []
+
+    for line in lines[4:-1]:
+        forces.append([float(i) for i in line.split()[3:]])
+
+    return np.array(forces)
+
+
+def get_pol_tensor(file_name, output_folder, symmetrize=False):
+    with open(os.path.join(output_folder, file_name), "r") as f:
+        lines = f.read().splitlines()
+
+    pol_au = np.zeros((3, 3))
+    pol_angs = np.zeros((3, 3))
+
+    for i, line in enumerate(lines):
+        if "POLARIZABILITY TENSOR (atomic units):" in line:
+            t1 = lines[i+1].split()[1:]
+            t2 = lines[i+2].split()[1:]
+            t3 = lines[i+3].split()[1:]
+            pol_au = np.array([t1, t2, t3], dtype=float)
+
+        if "POLARIZABILITY TENSOR (Angstrom^3):" in line:
+
+            t1 = lines[i+1].split()[1:]
+            t2 = lines[i+2].split()[1:]
+            t3 = lines[i+3].split()[1:]
+            pol_angs = np.array([t1, t2, t3], dtype=float)
+
+    # The output of CP2K is out of order. We need to reorder it
+    pol_au_order = np.zeros((3, 3))
+    pol_au_order[0, 0] = pol_au[0, 0]
+    pol_au_order[1, 1] = pol_au[0, 1]
+    pol_au_order[2, 2] = pol_au[0, 2]
+    pol_au_order[0, 1] = pol_au[1, 0]
+    pol_au_order[0, 2] = pol_au[1, 1]
+    pol_au_order[1, 2] = pol_au[1, 2]
+    pol_au_order[1, 0] = pol_au[2, 0]
+    pol_au_order[2, 0] = pol_au[2, 1]
+    pol_au_order[2, 1] = pol_au[2, 2]
+
+    po_angs_order = np.zeros((3, 3))
+
+    po_angs_order[0, 0] = pol_angs[0, 0]
+    po_angs_order[1, 1] = pol_angs[0, 1]
+    po_angs_order[2, 2] = pol_angs[0, 2]
+    po_angs_order[0, 1] = pol_angs[1, 0]
+    po_angs_order[0, 2] = pol_angs[1, 1]
+    po_angs_order[1, 2] = pol_angs[1, 2]
+    po_angs_order[1, 0] = pol_angs[2, 0]
+    po_angs_order[2, 0] = pol_angs[2, 1]
+    po_angs_order[2, 1] = pol_angs[2, 2]
+
+    if symmetrize:
+        pol_au_order = 0.5 * (pol_au_order + pol_au_order.T)
+        po_angs_order = 0.5 * (po_angs_order + po_angs_order.T)
+
+    return pol_au_order, po_angs_order
+
+
+# function to calculate differential cross section
+def diff_cross_section(I_k, nu_k, laser_wl=0, T=300):
+    # defining universal constants
+    c = 299792458
+    mu_0 = 1.25663706212 * 1e-6
+    eps_0 = np.reciprocal(np.square(c) * mu_0)
+    k_B = 1.380649 * 1e-23
+    h = 6.62607015 * 1e-34
+    nm2cm = 1e-7
+
+    if laser_wl > 0:
+        nu_in = np.reciprocal(laser_wl * nm2cm)
+    else:
+        nu_in = 0  # limit case
+
+    g = np.reciprocal(1 - np.exp(-h * c * nu_k / (k_B * T)))
+
+    return np.pi**2 / eps_0**2 * (nu_in - nu_k)**4 * h / (8 * np.pi**2 * c * nu_k) * I_k / 45 * g
+
+
+def expand_tensor_by_symm(tensor, primitive, prim_symmetry):
+
+    # Expand tensor to all atoms in the primitive cell
+    rotations = prim_symmetry.get_symmetry_operations()['rotations']
+    map_operations = prim_symmetry.get_map_operations()
+    map_atoms = prim_symmetry.get_map_atoms()
+
+    for na in range(primitive.get_number_of_atoms()):
+        # R_cart = L R L^-1
+        rotc = similarity_transformation(primitive.get_cell().transpose(),
+                                         rotations[map_operations[na]])
+        rotct = rotc.transpose()
+        # R_cart^T B R_cart^-1 (inverse rotation is required to transform)
+        # 3d rotational matrix is R_{kij}=sum_{lmn}rotc_{kl}*rotc_{im}*rotc_{jn}
+        for k in range(3):
+            for i in range(3):
+                for j in range(3):
+                    for p in range(3):
+                        for m in range(3):
+                            for n in range(3):
+                                tensor[na][k][i][j] += (
+                                    tensor[map_atoms[na]][p][m][n]
+                                    * rotct[k][p]
+                                    * rotct[i][m]
+                                    * rotct[j][n])
+
+    return tensor
