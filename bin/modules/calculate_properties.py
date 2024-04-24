@@ -4,15 +4,15 @@
 # SPDX-License-Identifier: Apache2.0
 
 import os
-import gemmi
-import numpy as np
 from types import SimpleNamespace
 
+import gemmi
+import numpy as np
 from ase.cell import Cell
-from modules.atom_data import BASIS_SET, PSEUDO_POTENTIALS
 from cp2k_input_tools.generator import CP2KInputGenerator
-
+from modules.atom_data import BASIS_SET, PSEUDO_POTENTIALS
 from phonopy.harmonic.force_constants import similarity_transformation
+from modules.constants import (c, eps_0, k_B, h, nm2cm)
 
 
 def calculate_Perpendicular_Widths(cif_filename: str) -> tuple[float, float, float]:
@@ -23,6 +23,20 @@ def calculate_Perpendicular_Widths(cif_filename: str) -> tuple[float, float, flo
     and `c`.
     The length in the perpendicular directions are the projections of the crystallographic vectors
     on the vectors `a x b`, `b x c`, and `c x a`. (here `x` means cross product)
+
+    Parameters
+    ----------
+    cif_filename : str
+        Path to the CIF file.
+
+    Returns
+    -------
+    p_width_1 : float
+        Perpendicular width in the direction perpendicular to the `ab` plane.
+    p_width_2 : float
+        Perpendicular width in the direction perpendicular to the `bc` plane.
+    p_width_3 : float
+        Perpendicular width in the direction perpendicular to the `ca` plane.
     """
     # Read data from CIF file
     cif = gemmi.cif.read_file(cif_filename).sole_block()
@@ -61,6 +75,18 @@ def calculate_UnitCells(cif_filename: str, cutoff: float) -> str:
     """
     Calculate the number of unit cell repetitions so that all supercell lengths are larger than
     twice the interaction potential cut-off radius.
+
+    Parameters
+    ----------
+    cif_filename : str
+        Path to the CIF file.
+    cutoff : float
+        Interaction potential cut-off radius in angstrom.
+
+    Returns
+    -------
+    unit_cells : str
+        String containing the number of unit cell repetitions in the `a`, `b`, and `c` directions.
     """
 
     # Calculate the perpendicular widths
@@ -204,7 +230,7 @@ def get_CM5AtomicCharges(output_filename: str) -> list[float]:
 
 
 def get_vibrational_data(CP2K_output_name) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    '''
+    """
     Get the vibrational data from the CP2K output file.
 
     Parameters
@@ -220,7 +246,7 @@ def get_vibrational_data(CP2K_output_name) -> tuple[np.ndarray, np.ndarray, np.n
         Array of the IR intensities in KM/Mole
     RAMAN_intensity : np.ndarray
         Array of the RAMAN intensities in A^4/AMU
-    '''
+    """
     output_file = open(CP2K_output_name, 'r').read().splitlines()
 
     # Find the line with the text: "NORMAL MODES - CARTESIAN DISPLACEMENTS"
@@ -249,7 +275,7 @@ def get_vibrational_data(CP2K_output_name) -> tuple[np.ndarray, np.ndarray, np.n
 
 
 def get_MoldenData(OutputFolder, Frameworkname):
-    '''
+    """
     Get the vibrational information from the molden file.
 
     Parameters
@@ -267,8 +293,7 @@ def get_MoldenData(OutputFolder, Frameworkname):
         List of the atomic labels.
     atom_pos : list
         List of the atomic positions.
-
-    '''
+    """
     # Read the molden file
     with open(os.path.join(OutputFolder, f'{Frameworkname}-VIBRATIONS-1.mol')) as f:
         molden_file = f.read().splitlines()
@@ -352,7 +377,7 @@ def getStructuresFromOptimization(outputfolder, FrameworkName) -> list:
 
 
 def get_spg_class(spgnum) -> str:
-    '''
+    """
     Get the space group class from the space group number.
     Parameters
     ----------
@@ -363,7 +388,7 @@ def get_spg_class(spgnum) -> str:
     -------
     spgclass : str
         Space group class
-    '''
+    """
     # Triclinic or monoclinic or orthorhombic
     spgclass = ""
     if (spgnum < 3):
@@ -385,7 +410,7 @@ def get_spg_class(spgnum) -> str:
 
 
 def get_reciprocal_vectors(CellMatrix) -> tuple[float, float, float]:
-    '''
+    """
     Get the reciprocal vectors of a cell given in cell parameters of cell vectors
     ----------
     CellMatrix : array
@@ -398,7 +423,7 @@ def get_reciprocal_vectors(CellMatrix) -> tuple[float, float, float]:
         (3,1) array containing b_2 vector in the reciprocal space
     b3 : array
         (3,1) array containing b_3 vector in the reciprocal space
-    '''
+    """
 
     v1, v2, v3 = CellMatrix
 
@@ -412,7 +437,7 @@ def get_reciprocal_vectors(CellMatrix) -> tuple[float, float, float]:
 
 
 def get_kgrid(cell, dist=0.3) -> tuple[float, float, float]:
-    '''Get the k-points grid in the reciprocal space with a given distance for a
+    """Get the k-points grid in the reciprocal space with a given distance for a
     cell given in cell parameters of cell vectors.
     ----------
     cell : array
@@ -427,7 +452,7 @@ def get_kgrid(cell, dist=0.3) -> tuple[float, float, float]:
         Number of points in the y direction on reciprocal space
     kz : int
         Number of points in the z direction on reciprocal space
-    '''
+    """
 
     b1, b2, b3 = get_reciprocal_vectors(cell)
 
@@ -454,6 +479,8 @@ def create_input_file(FrameworkName: str,
         Name of the framework
     output_folder : str
         Path to the output folder
+    **kwargs : dict
+        Dictionary with the parameters to be used in the CP2K input file creation.
     """
 
     CalcDict = {
@@ -488,7 +515,6 @@ def create_input_file(FrameworkName: str,
         'KeepAngles': False,
         'MaxIterations': 100,
         'Restart': False,
-        'MaxIterations': 100,
         'MaxDR': 1e-3,
         'MaxForce': 1e-3,
         'RMSDR': 1e-3,
@@ -834,10 +860,32 @@ def get_forces(FrameworkName, output_folder):
     for line in lines[4:-1]:
         forces.append([float(i) for i in line.split()[3:]])
 
+    if np.any(np.isnan(forces)) or np.any(np.isinf(forces)):
+        print(f'Warning: Found NaN or Inf values on forces for {output_folder}')
+
     return np.array(forces)
 
 
 def get_pol_tensor(file_name, output_folder, symmetrize=False):
+    """
+    Get the polarizability tensor from the CP2K output file.
+
+    Parameters
+    ----------
+    file_name : str
+        Name of the output file.
+    output_folder : str
+        Path to the output folder.
+    symmetrize : bool, optional
+        Symmetrize the polarizability tensor.
+
+    Returns
+    -------
+    pol_au_order : np.ndarray
+        Polarizability tensor (3,3) in atomic units [a.u.^3].
+    po_angs_order : np.ndarray
+        Polarizability tensor (3,3) in [angs^3].
+    """
     with open(os.path.join(output_folder, file_name), "r") as f:
         lines = f.read().splitlines()
 
@@ -886,18 +934,36 @@ def get_pol_tensor(file_name, output_folder, symmetrize=False):
         pol_au_order = 0.5 * (pol_au_order + pol_au_order.T)
         po_angs_order = 0.5 * (po_angs_order + po_angs_order.T)
 
+    if np.any(np.isnan(pol_au_order)) or np.any(np.isinf(pol_au_order)):
+        print(f'Warning: Found NaN or Inf values on polarizability tensor of {output_folder}')
+
+    if np.linalg.norm(pol_au_order) == 0:
+        print(f'Warning: Found zero values on polarizability tensor of {output_folder}')
+
     return pol_au_order, po_angs_order
 
 
-# function to calculate differential cross section
 def diff_cross_section(I_k, nu_k, laser_wl=0, T=300):
-    # defining universal constants
-    c = 299792458
-    mu_0 = 1.25663706212 * 1e-6
-    eps_0 = np.reciprocal(np.square(c) * mu_0)
-    k_B = 1.380649 * 1e-23
-    h = 6.62607015 * 1e-34
-    nm2cm = 1e-7
+    """
+    Calculate the differential cross section of a Raman scattering process for
+    a given intensity, frequency, laser wavelength, and temperature.
+
+    Parameters
+    ----------
+    I_k : float
+        Intensity of the Raman scattering process.
+    nu_k : float
+        Frequency of the Raman scattering process.
+    laser_wl : float, optional
+        Wavelength of the laser.
+    T : float, optional
+        Temperature in Kelvin.
+
+    Returns
+    -------
+    diff_cross_section : float
+        Differential cross section of the Raman scattering process.
+    """
 
     if laser_wl > 0:
         nu_in = np.reciprocal(laser_wl * nm2cm)
@@ -910,6 +976,23 @@ def diff_cross_section(I_k, nu_k, laser_wl=0, T=300):
 
 
 def expand_tensor_by_symm(tensor, primitive, prim_symmetry):
+    """
+    Expand the tensor to all atoms in the primitive cell.
+
+    Parameters
+    ----------
+    tensor : np.ndarray
+        Tensor to be expanded.
+    primitive : Atoms
+        Primitive cell.
+    prim_symmetry : Symmetry
+        Symmetry of the primitive cell.
+
+    Returns
+    -------
+    tensor : np.ndarray
+        Expanded tensor.
+    """
 
     # Expand tensor to all atoms in the primitive cell
     rotations = prim_symmetry.get_symmetry_operations()['rotations']

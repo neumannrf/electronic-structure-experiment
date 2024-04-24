@@ -5,21 +5,17 @@
 
 import argparse
 import os
-import numpy as np
 from copy import deepcopy
 
-from modules.calculate_properties import (get_CellParameters,
+import numpy as np
+from ase.cell import Cell
+from modules.calculate_properties import (calculate_UnitCells,
+                                          create_input_file,
                                           get_AtomicPositions,
-                                          calculate_UnitCells,
-                                          get_spg_class,
-                                          create_input_file)
-
+                                          get_CellParameters, get_spg_class)
 from phonopy import Phonopy
 from phonopy.structure.atoms import PhonopyAtoms
-
 from phonopy.units import CP2KToTHz
-
-from ase.cell import Cell
 
 # Required parameters
 parser = argparse.ArgumentParser(description='Create symmetric shifts for the small displacement method.')
@@ -49,7 +45,7 @@ parser.add_argument('--PrimitiveMatrix',
                     action='store',
                     required=False,
                     metavar='PRIMITIVE_MATRIX',
-                    help='Primitive matrix for unit cell creation. (comma-separated flattened 3x3 matrix)')
+                    help='Primitive matrix for unit cell creation. (comma-separated row-wise flattened 3x3 matrix)')
 parser.add_argument('--dR',
                     type=float,
                     default=0.001,
@@ -318,7 +314,7 @@ print(f"Supercell with {nAtoms['supercell']} atoms:", cell_txt.format(*cellParam
 print(f'Found space group: {spaceGroupClass} {spaceGroupString} with number {spaceGrounNumber}')
 print(f"{len(IndAtoms['supercell'])} independent atoms on supercell:")
 
-for i, atom in enumerate(IndAtoms['supercell']):
+for atom in IndAtoms['supercell']:
     print("    Atom {:3} with type {:2} at position {:7.4f}  {:7.4f}  {:7.4f}".format(atom,
                                                                                       atomTypes['supercell'][atom],
                                                                                       *fracPos['supercell'][atom]))

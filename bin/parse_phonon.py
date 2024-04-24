@@ -5,27 +5,19 @@
 
 import argparse
 import os
-import sys
+
 import numpy as np
-
-from modules.calculate_properties import (get_CellParameters,
+from ase.cell import Cell
+from modules.calculate_properties import (calculate_UnitCells,
                                           get_AtomicPositions,
-                                          calculate_UnitCells,
-                                          get_spg_class,
-                                          get_forces,
-                                          get_pol_tensor,
+                                          get_CellParameters, get_forces,
+                                          get_pol_tensor, get_spg_class,
                                           lorentzian)
-
-from modules.io_files import (save_axsf)
-
 from modules.constants import factor2cm
-
+from modules.io_files import save_axsf
 from phonopy import Phonopy
 from phonopy.structure.atoms import PhonopyAtoms
-
 from phonopy.units import CP2KToTHz
-
-from ase.cell import Cell
 
 # Required parameters
 parser = argparse.ArgumentParser(description='Create symmetric shifts for the small displacement method.')
@@ -55,7 +47,7 @@ parser.add_argument('--PrimitiveMatrix',
                     action='store',
                     required=False,
                     metavar='PRIMITIVE_MATRIX',
-                    help='Primitive matrix for unit cell creation. (comma-separated flattened 3x3 matrix)')
+                    help='Primitive matrix for unit cell creation. (comma-separated row-wise flattened 3x3 matrix)')
 parser.add_argument('--dR',
                     type=float,
                     default=0.001,
@@ -209,7 +201,7 @@ print(f"Supercell with {nAtoms['supercell']} atoms:", cell_txt.format(*cellParam
 print(f'Found space group: {spaceGroupClass} {spaceGroupString} with number {spaceGrounNumber}')
 print(f"{len(IndAtoms['supercell'])} independent atoms on supercell:")
 
-for i, atom in enumerate(IndAtoms['supercell']):
+for atom in IndAtoms['supercell']:
     print("    Atom {:3} with type {:2} at position {:7.4f}  {:7.4f}  {:7.4f}".format(atom,
                                                                                       atomTypes['supercell'][atom],
                                                                                       *fracPos['supercell'][atom]))
@@ -244,15 +236,12 @@ PhononCalc.produce_force_constants(calculate_full_force_constants=True)
 # Symmetrize the force constants
 PhononCalc.symmetrize_force_constants()
 
-# Hack to do irrep analysis
+# Perform irreducible representation analysis at Gamma
 ir_labels = [""] * nAtoms['primitive'] * 3
 PhononCalc.supercell.set_magnetic_moments(None)
-
-# Set IR for Gamma point
 PhononCalc.set_irreps([0.0, 0.0, 0.0])
 
-for i, (deg_set, ir) in enumerate(zip(PhononCalc.get_irreps()._degenerate_sets,
-                                      PhononCalc.get_irreps()._ir_labels)):
+for (deg_set, ir) in zip(PhononCalc.get_irreps()._degenerate_sets, PhononCalc.get_irreps()._ir_labels):
     for j in deg_set:
         if (ir is None):
             ir_labels[j] = "Non"
@@ -271,6 +260,9 @@ frequencies = np.sqrt(np.abs(eigenValues.real)) * np.sign(eigenValues) * factor2
 # Check if there is any negative frequency
 if np.any(frequencies < -5e-3):
     print('WARNING: Negative frequencies found!')
+    for i, freq in enumerate(frequencies):
+        if freq < -5e-3:
+            print(f'Mode {i:3} {ir_labels[i]:4}: {freq:8.2f} cm-1')
 
 if arg.SaveVecs:
     shiftVecs = np.zeros((len(frequencies), nAtoms['primitive'], 3))
@@ -297,41 +289,38 @@ if arg.SaveVecs:
               cartPos['primitive'],
               shiftVecs)
 
-# Calculating Raman Tensor Placzek Invariants
-
-# N atoms, 3 directions (x, y, z), 2 polarizations (+, -), 3x3 tensor
+# Calculating dP/dR: N atoms, 3 directions (x, y, z), 2 polarizations (+, -), 3x3 tensor
 d_polarizability = np.zeros((nAtoms['primitive'], 3, 3, 3))
 
 # Iterate over atoms on primitive cell
 for i in range(nAtoms['primitive']):
-    for d, label, dirVec in [[0, 'x', [1, 0, 0]], [1, 'y', [0, 1, 0]], [2, 'z', [0, 0, 1]]]:
+    for d, label, _ in [[0, 'x', [1, 0, 0]], [1, 'y', [0, 1, 0]], [2, 'z', [0, 0, 1]]]:
         # Get the polarizability tensor in Angstrom^2
         polTensor_plus = get_pol_tensor(f'{arg.FrameworkName}_{i}_+{label}-raman-1_0.data', f'{i}_+{label}')[1]
         polTensor_minus = get_pol_tensor(f'{arg.FrameworkName}_{i}_-{label}-raman-1_0.data', f'{i}_-{label}')[1]
 
-        if (np.linalg.norm(polTensor_plus) == 0 or np.linalg.norm(polTensor_minus) == 0):
-            print('Warning. Epsilon data damaged for atom %d. Direction %s. Norm is zero' % (i, label))
-            sys.exit(1)
-
         # Use the two-point finite difference formula to calculate the polarizability tensor derivatives
         # f'(x) = (f(x + h) - f(x - h)) / (2 * h)
-
         d_polarizability[i][d] = (polTensor_plus - polTensor_minus) / (2 * arg.dR)
 
 # Get the phonon eigendisplacements vectors as (3 * N_atoms) x N_modes array
 phonon_eigendisplacements = np.zeros((nAtoms['primitive'], len(frequencies), 3))
 
+# Fill the phonon eigendisplacements array
 for i, mode in enumerate(eigenVectors.real.T):
     for j, atom in enumerate(mode.reshape(-1, 3)):
         phonon_eigendisplacements[j, i] = atom
 
-# Calculating Raman tensor from polarizability tensor derivatives, phonon eigendisplacements, and atomic masses
+# Calculating Raman tensor from polarizability tensor derivatives (dP/dR), phonon eigendisplacements, and atomic masses
 alpha = np.einsum('ad...,akd,a->k...',
                   d_polarizability,
                   phonon_eigendisplacements,
                   invAtomicMass['primitive'])
 
-# Calculate the Placzek tensor invariants
+# Calculating Raman Tensor Placzek Invariants following:
+# The Raman Effect: A Unified Treatment of the Theory of Raman Scattering by Molecules
+# by Derek A. Long, 2002
+# This does not require the tensor to be symmetric.
 
 # Calculate the mean polarizability squared
 a_sq = np.square(np.trace(alpha, 0, 2) / 3).reshape((-1, 1))
@@ -343,30 +332,31 @@ gamma_sq = np.zeros((len(frequencies), 1))
 delta_sq = np.zeros_like(gamma_sq)
 
 for k in range(len(frequencies)):
-    gamma_sq[k] = 0.5 * (np.square(alpha[k][0][0] - alpha[k][1][1])
+    delta_sq[k] = 3/4 * (np.square(alpha[k][0][1] - alpha[k][1][0])
+                         + np.square(alpha[k][1][2] - alpha[k][2][1])
+                         + np.square(alpha[k][2][0] - alpha[k][0][2]))
+
+    gamma_sq[k] = 1/2 * (np.square(alpha[k][0][0] - alpha[k][1][1])
                          + np.square(alpha[k][1][1] - alpha[k][2][2])
                          + np.square(alpha[k][2][2] - alpha[k][0][0])) \
-                         + 3 * (np.square(alpha[k][0][1])
-                                + np.square(alpha[k][1][2])
-                                + np.square(alpha[k][2][0]))
-    delta_sq[k] = 0.75 * (np.square(alpha[k][0][1] - alpha[k][1][0])
-                          + np.square(alpha[k][0][2] - alpha[k][2][0])
-                          + np.square(alpha[k][1][2] - alpha[k][2][1]))
+                + 3/4 * (np.square(alpha[k][0][1] + alpha[k][1][0])
+                         + np.square(alpha[k][0][2] + alpha[k][2][0])
+                         + np.square(alpha[k][1][2] + alpha[k][2][1]))
 
-
-# Calculate the Raman Intensities
+# Create the Raman Intensities vector
 I_raman = np.zeros((len(frequencies), 3))
 
-# Calculate absolute Raman intensity: Total, Perpendicular, and Parallel
+# Calculate absolute Raman intensity: Total, Perpendicular, and Parallel considering
+# incident linear polarized radiation
 for k in range(len(frequencies)):
     if frequencies[k] > 1e-3:  # there are no physical meaning on imaginary frequencies
         I_total = 45 * a_sq[k] + 7 * gamma_sq[k] + 5 * delta_sq[k]
         I_perpendicular = 45 * a_sq[k] + 4 * gamma_sq[k]
         I_parallel = 3 * gamma_sq[k] + 5 * delta_sq[k]
 
-        I_raman[k] = np.array([I_total, I_perpendicular, I_parallel]).flatten()
+        I_raman[k] = np.array([I_total, I_perpendicular, I_parallel]).flatten() / 45
 
-
+# Prepare the Raman data to save as a csv file
 raman_data = [[i, ir_labels[i], freq, *I_raman[i]] for i, freq in enumerate(frequencies)]
 
 # Save raman_data as a csv file
@@ -376,6 +366,7 @@ np.savetxt(os.path.join(arg.output_folder, f'{arg.FrameworkName}_RamanTable.csv'
            delimiter=',',
            fmt='%5d,%4s,%10.2f,%15.7f,%15.7f,%15.7f')
 
+# Calculate the Raman spectrum
 X = np.linspace(min(frequencies), max(frequencies)*1.2, 10000)
 I_tot = np.zeros_like(X)
 I_perp = np.zeros_like(X)
@@ -387,7 +378,6 @@ for i, freq in enumerate(frequencies):
     I_par += lorentzian(X, freq, arg.HalfWidth) * I_raman[i][2]
 
 # Normalize the Raman intensities
-
 norm_factor = np.max(I_tot)
 
 I_tot /= norm_factor
@@ -398,4 +388,5 @@ I_par /= norm_factor
 np.savetxt(os.path.join(arg.output_folder, f'{arg.FrameworkName}_RAMAN_Curve.csv'),
            np.transpose([X, I_tot, I_perp, I_par]),
            header='Frequency (cm-1), Total Raman Int (a.u), Perpendicular Raman Int (a.u), Parallel Raman Int (a.u)',
-           delimiter=',')
+           delimiter=',',
+           fmt='%15.7f')
