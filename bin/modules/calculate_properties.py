@@ -934,45 +934,46 @@ def get_pol_tensor(file_name, output_folder, symmetrize=False):
         pol_au_order = 0.5 * (pol_au_order + pol_au_order.T)
         po_angs_order = 0.5 * (po_angs_order + po_angs_order.T)
 
-    if np.any(np.isnan(pol_au_order)) or np.any(np.isinf(pol_au_order)):
-        print(f'Warning: Found NaN or Inf values on polarizability tensor of {output_folder}')
-
     if np.linalg.norm(pol_au_order) == 0:
         print(f'Warning: Found zero values on polarizability tensor of {output_folder}')
+
+    if np.any(np.isnan(pol_au_order)) or np.any(np.isinf(pol_au_order)):
+        print(f'Warning: Found NaN or Inf values on polarizability tensor of {output_folder}')
+        pol_au_order = np.zeros((3, 3))
+        po_angs_order = np.zeros((3, 3))
 
     return pol_au_order, po_angs_order
 
 
-def diff_cross_section(I_k, nu_k, laser_wl=0, T=300):
+def diff_cross_section(w, laser_wl=532, T=298):
     """
     Calculate the differential cross section of a Raman scattering process for
-    a given intensity, frequency, laser wavelength, and temperature.
+    a given frequency, laser wavelength, and temperature.
+
+    Taken from: The Raman Effect: A Unified Treatment of the Theory of Raman Scattering
+    Equation 5.7.16
 
     Parameters
     ----------
-    I_k : float
-        Intensity of the Raman scattering process.
-    nu_k : float
-        Frequency of the Raman scattering process.
+    w : float
+        Frequency of the Raman scattering process in cm^-1.
     laser_wl : float, optional
-        Wavelength of the laser.
+        Wavelength of the laser in nm. Default is 532 nm.
     T : float, optional
-        Temperature in Kelvin.
+        Temperature in Kelvin. Default is 298 K.
 
     Returns
     -------
-    diff_cross_section : float
+    cross_section : float
         Differential cross section of the Raman scattering process.
     """
 
-    if laser_wl > 0:
-        nu_in = np.reciprocal(laser_wl * nm2cm)
-    else:
-        nu_in = 0  # limit case
+    # Convert the laser wavelength to wavenumber
+    wl = np.reciprocal(laser_wl * 1e-7)
 
-    g = np.reciprocal(1 - np.exp(-h * c * nu_k / (k_B * T)))
+    n_m = np.reciprocal(1 - np.exp(-h * w * 1e2 * c / (k_B * T)))
 
-    return np.pi**2 / eps_0**2 * (nu_in - nu_k)**4 * h / (8 * np.pi**2 * c * nu_k) * I_k / 45 * g
+    return ((wl - w)**4 / w) * (n_m + 1)
 
 
 def expand_tensor_by_symm(tensor, primitive, prim_symmetry):
