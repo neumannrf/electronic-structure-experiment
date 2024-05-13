@@ -11,5 +11,6 @@ dependencies:
   - ase
   - gemmi
   - pymatgen
+  - phono3py
   - pip:
     - cp2k-input-tools
