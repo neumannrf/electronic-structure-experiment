@@ -10,8 +10,11 @@ import numpy as np
 from ase.cell import Cell
 from modules.calculate_properties import (calculate_UnitCells,
                                           get_AtomicPositions,
-                                          get_CellParameters, get_forces,
-                                          get_pol_tensor, get_spg_class,
+                                          get_CellParameters,
+                                          get_forces,
+                                          get_pol_tensor,
+                                          get_spg_class,
+                                          diff_cross_section,
                                           lorentzian)
 from modules.constants import factor2cm
 from modules.io_files import save_axsf
@@ -296,8 +299,8 @@ d_polarizability = np.zeros((nAtoms['primitive'], 3, 3, 3))
 for i in range(nAtoms['primitive']):
     for d, label, _ in [[0, 'x', [1, 0, 0]], [1, 'y', [0, 1, 0]], [2, 'z', [0, 0, 1]]]:
         # Get the polarizability tensor in Angstrom^2
-        polTensor_plus = get_pol_tensor(f'{arg.FrameworkName}_{i}_+{label}-raman-1_0.data', f'{i}_+{label}')[1]
-        polTensor_minus = get_pol_tensor(f'{arg.FrameworkName}_{i}_-{label}-raman-1_0.data', f'{i}_-{label}')[1]
+        polTensor_plus = get_pol_tensor(f'{arg.FrameworkName}_{i}_+{label}-raman-1_1.data', f'{i}_+{label}')[1]
+        polTensor_minus = get_pol_tensor(f'{arg.FrameworkName}_{i}_-{label}-raman-1_1.data', f'{i}_-{label}')[1]
 
         # Use the two-point finite difference formula to calculate the polarizability tensor derivatives
         # f'(x) = (f(x + h) - f(x - h)) / (2 * h)
@@ -315,7 +318,7 @@ for i, mode in enumerate(eigenVectors.real.T):
 alpha = np.einsum('ad...,akd,a->k...',
                   d_polarizability,
                   phonon_eigendisplacements,
-                  invAtomicMass['primitive'])
+                  invAtomicMass['primitive']) * np.sqrt(cellVolume['primitive'])
 
 # Calculating Raman Tensor Placzek Invariants following:
 # The Raman Effect: A Unified Treatment of the Theory of Raman Scattering by Molecules
@@ -356,26 +359,53 @@ for k in range(len(frequencies)):
 
         I_raman[k] = np.array([I_total, I_perpendicular, I_parallel]).flatten() / 45
 
+cs = diff_cross_section(frequencies, arg.LaserWaveLength, arg.ExternalTemperature)
+
+# Create the Raman cross section vector
+raman_cross_section = np.zeros((len(frequencies), 3))
+
+for k in range(len(frequencies)):
+    if frequencies[k] > 1e-3:  # there are no physical meaning on imaginary frequencies
+        raman_cross_section[k] = cs[k] * I_raman[k]
+
 # Prepare the Raman data to save as a csv file
-raman_data = [[i, ir_labels[i], freq, *I_raman[i]] for i, freq in enumerate(frequencies)]
+raman_data = [[i, ir_labels[i], freq, *I_raman[i], *raman_cross_section[i]] for i, freq in enumerate(frequencies)]
+
+header_list = [
+    'Mode',
+    'Symmetry',
+    'Frequency (cm-1)',
+    'Total Raman Int (a.u)',
+    'Perpendicular Raman Int (a.u)',
+    'Parallel Raman Int (a.u)',
+    'Total Cross Section (Å^4.amu^-1)',
+    'Perpendicular Cross Section (Å^4.amu^-1)',
+    'Parallel Cross Section (Å^4.amu^-1)']
 
 # Save raman_data as a csv file
 np.savetxt(os.path.join(arg.output_folder, f'{arg.FrameworkName}_RamanTable.csv'),
            np.array(raman_data, dtype=object),
-           header='Mode, Irrep, Frequency (cm-1), Total, Perpendicular, Parallel',
+           header=','.join(header_list),
            delimiter=',',
-           fmt='%5d,%4s,%10.2f,%15.7f,%15.7f,%15.7f')
+           fmt='%5d,%4s,%10.2f,%15.7f,%15.7f,%15.7f,%25.3f,%25.3f,%25.3f')
 
 # Calculate the Raman spectrum
 X = np.linspace(min(frequencies), max(frequencies)*1.2, 10000)
 I_tot = np.zeros_like(X)
 I_perp = np.zeros_like(X)
 I_par = np.zeros_like(X)
+Cs_tot = np.zeros_like(X)
+Cs_perp = np.zeros_like(X)
+Cs_par = np.zeros_like(X)
+
 
 for i, freq in enumerate(frequencies):
     I_tot += lorentzian(X, freq, arg.HalfWidth) * I_raman[i][0]
     I_perp += lorentzian(X, freq, arg.HalfWidth) * I_raman[i][1]
     I_par += lorentzian(X, freq, arg.HalfWidth) * I_raman[i][2]
+    Cs_tot += lorentzian(X, freq, arg.HalfWidth) * raman_cross_section[i][0]
+    Cs_perp += lorentzian(X, freq, arg.HalfWidth) * raman_cross_section[i][1]
+    Cs_par += lorentzian(X, freq, arg.HalfWidth) * raman_cross_section[i][2]
 
 # Normalize the Raman intensities
 norm_factor = np.max(I_tot)
@@ -384,9 +414,23 @@ I_tot /= norm_factor
 I_perp /= norm_factor
 I_par /= norm_factor
 
+norm_factor = np.max(Cs_tot)
+
+Cs_tot /= norm_factor
+Cs_perp /= norm_factor
+Cs_par /= norm_factor
+
+header_list = ['Frequency (cm-1)',
+               'Total Raman Int (a.u)',
+               'Perpendicular Raman Int (a.u)',
+               'Parallel Raman Int (a.u)',
+               'Total Cross Section (a.u.)',
+               'Perpendicular Cross Section (a.u.)',
+               'Parallel Cross Section (a.u.)']
+
 # Save as a numpy csv file
 np.savetxt(os.path.join(arg.output_folder, f'{arg.FrameworkName}_RAMAN_Curve.csv'),
-           np.transpose([X, I_tot, I_perp, I_par]),
-           header='Frequency (cm-1), Total Raman Int (a.u), Perpendicular Raman Int (a.u), Parallel Raman Int (a.u)',
+           np.transpose([X, I_tot, I_perp, I_par, Cs_tot, Cs_perp, Cs_par]),
+           header=','.join(header_list),
            delimiter=',',
            fmt='%15.7f')
