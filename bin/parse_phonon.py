@@ -299,8 +299,8 @@ d_polarizability = np.zeros((nAtoms['primitive'], 3, 3, 3))
 for i in range(nAtoms['primitive']):
     for d, label, _ in [[0, 'x', [1, 0, 0]], [1, 'y', [0, 1, 0]], [2, 'z', [0, 0, 1]]]:
         # Get the polarizability tensor in Angstrom^2
-        polTensor_plus = get_pol_tensor(f'{arg.FrameworkName}_{i}_+{label}-raman-1_1.data', f'{i}_+{label}')[1]
-        polTensor_minus = get_pol_tensor(f'{arg.FrameworkName}_{i}_-{label}-raman-1_1.data', f'{i}_-{label}')[1]
+        polTensor_plus = get_pol_tensor(f'{arg.FrameworkName}_{i}_+{label}-raman-1_0.data', f'{i}_+{label}')[1]
+        polTensor_minus = get_pol_tensor(f'{arg.FrameworkName}_{i}_-{label}-raman-1_0.data', f'{i}_-{label}')[1]
 
         # Use the two-point finite difference formula to calculate the polarizability tensor derivatives
         # f'(x) = (f(x + h) - f(x - h)) / (2 * h)
