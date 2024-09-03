@@ -225,7 +225,7 @@ def saveXSF(FrameworkName: str,
             frac_z: list[float],
             OutputFolder: str = '.',
             **kwargs):
-    '''
+    """
     Save the XSF file.
 
     Parameters
@@ -244,7 +244,7 @@ def saveXSF(FrameworkName: str,
         List of the atomic positions along the `c` vector.
     OutputFolder : str
         Path to the output folder. Default: `.`
-    '''
+    """
 
     aseCell = Cell.fromcellpar(CellParameters)
     # Get the cell parameters from cif file
@@ -494,9 +494,9 @@ Title Card Required
 
 
 def saveVibrationalVectors(OutputFolder, Frameworkname):
-    '''
+    """
     Get the vibrational vectors from the CP2K output file.
-    '''
+    """
 
     atom_labels, atom_pos, vibrations, _, _, _, freq_list = get_MoldenData(OutputFolder, Frameworkname)
 
@@ -533,7 +533,7 @@ def save_axsf(output_folder,
               atomTypes,
               cartPos,
               shiftVecs):
-    '''
+    """
     Save the atomic positions and the shift vectors to an axsf file.
 
     Parameters
@@ -550,23 +550,32 @@ def save_axsf(output_folder,
         N x 3 list of the atomic positions in cartesian coordinates
     shiftVecs : list
         M x N x 3 array of the shift vectors with M the number of modes and N the number of atoms
-    '''
+    """
     axsf_txt = ''
     if len(shiftVecs) > 1:
         axsf_txt += f'ANIMSTEPS {len(shiftVecs)}\n'
     axsf_txt += 'CRYSTAL\n'
-    axsf_txt += 'PRIMVEC\n'
-    for i in range(3):
-        axsf_txt += f' {cellMatrix[i][0]: 12.7f}   {cellMatrix[i][1]: 12.7f}   {cellMatrix[i][2]: 12.7f}\n'
+
+    if np.array(cellMatrix).shape == (3, 3):
+        cellMatrix = [cellMatrix for i in range(len(shiftVecs))]
+
+    if np.array(atomTypes).shape != (len(shiftVecs), len(atomTypes)):
+        atomTypes = [atomTypes for i in range(len(shiftVecs))]
+
+    if np.array(cartPos).shape != (len(shiftVecs), len(atomTypes), 3):
+        cartPos = [cartPos for i in range(len(shiftVecs))]
 
     for i in range(len(shiftVecs)):
-        axsf_txt += f'PRIMCOORD {i+1}\n'
-        axsf_txt += f'{len(atomTypes)} 1\n'
-        for j in range(len(atomTypes)):
-            axsf_txt += '{:3} {:12.7f} {:12.7f} {:12.7f} {:12.7f} {:12.7f} {:12.7f}\n'.format(atomTypes[j],
-                                                                                              cartPos[j][0],
-                                                                                              cartPos[j][1],
-                                                                                              cartPos[j][2],
+        axsf_txt += f'PRIMVEC {i + 1}\n'
+        for j in range(3):
+            axsf_txt += f' {cellMatrix[i][j][0]: 12.7f}   {cellMatrix[i][j][1]: 12.7f}   {cellMatrix[i][j][2]: 12.7f}\n'
+        axsf_txt += f'PRIMCOORD {i + 1}\n'
+        axsf_txt += f'{len(atomTypes[i])} 1\n'
+        for j in range(len(atomTypes[i])):
+            axsf_txt += '{:3} {:12.7f} {:12.7f} {:12.7f} {:12.7f} {:12.7f} {:12.7f}\n'.format(atomTypes[i][j],
+                                                                                              cartPos[i][j][0],
+                                                                                              cartPos[i][j][1],
+                                                                                              cartPos[i][j][2],
                                                                                               shiftVecs[i][j][0],
                                                                                               shiftVecs[i][j][1],
                                                                                               shiftVecs[i][j][2])

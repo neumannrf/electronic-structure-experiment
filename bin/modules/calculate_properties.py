@@ -376,6 +376,34 @@ def getStructuresFromOptimization(outputfolder, FrameworkName) -> list:
     return structure_list
 
 
+def getForcesFromOptimization(outputfolder, FrameworkName) -> list:
+    """
+    Get the forces from the optimization output files.
+
+    Parameters
+    ----------
+    outputfolder : str
+        Path to the output folder.
+    FrameworkName : str
+        Name of the framework.
+
+    Returns
+    -------
+    forces_list : list
+        List of the forces.
+    """
+
+    # List the files in the output folder with name {FrameworkName}-forces-1_1.xyz
+    files = [i for i in os.listdir(outputfolder) if f'{FrameworkName}-forces-1' in i]
+
+    forces_list = []
+
+    for i in range(len(files)):
+        forces_list.append(get_forces(FileName=f'{FrameworkName}-forces-1_{i + 1}',
+                                      output_folder=outputfolder))
+
+    return forces_list
+
 def get_spg_class(spgnum) -> str:
     """
     Get the space group class from the space group number.
