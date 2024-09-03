@@ -356,7 +356,7 @@ if arg.Functional == 'PBE':
 
     Force_Eval_Dict["+subsys"]["+kind"] = Kind_List
 
-if arg.DispersionCorrection != 'None':
+if arg.DispersionCorrection != 'None' and arg.Functional == 'PBE':
     Force_Eval_Dict["+dft"]['+xc']["+vdw_potential"] = {
                         "potential_type": "pair_potential",
                         "+pair_potential": {

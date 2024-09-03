@@ -8,9 +8,7 @@ import argparse
 
 from ase import Atoms
 
-from modules.calculate_properties import (getCellParametersFromOptimization,
-                                          getStructuresFromOptimization,
-                                          getForcesFromOptimization)
+from modules.parse_cp2k import (getCellParameters, getStructures, getForces)
 
 from modules.io_files import save_axsf
 from ase.cell import Cell
@@ -56,8 +54,8 @@ if not optimized and lbfgs_error:
     print('Error on the L-BFGS algorithm! Exiting...')
     print('Saving last structure.')
 
-    CellParametersList = getCellParametersFromOptimization(arg.output_folder, arg.FrameworkName)
-    StructureList = getStructuresFromOptimization(arg.output_folder, arg.FrameworkName)
+    CellParametersList = getCellParameters(arg.output_folder, arg.FrameworkName)
+    StructureList = getStructures(arg.output_folder, arg.FrameworkName)
 
     tempStructure = Atoms(StructureList[-1][0],
                           cell=CellParametersList[-1],
@@ -73,31 +71,24 @@ if not optimized and not lbfgs_error:
     print('Optimization failed! Exiting...')
     exit(1)
 
-CellParametersList = getCellParametersFromOptimization(arg.output_folder, arg.FrameworkName)
-StructureList = getStructuresFromOptimization(arg.output_folder, arg.FrameworkName)
-ForcesList = getForcesFromOptimization(arg.output_folder, arg.FrameworkName)
+CellMatrixList, CellParametersList = getCellParameters(arg.output_folder, arg.FrameworkName)
+atomLabelList, atomPosList = getStructures(arg.output_folder, arg.FrameworkName)
+ForcesList = getForces(arg.output_folder, arg.FrameworkName)
 
+# Save the optimization history
 if arg.SaveHistory:
 
     # Save the axsf file with the optimization history
-    atomTypes = []
-    cartPos = []
-    for structure in StructureList[1:]:
-        atomTypes.append(structure[0])
-        cartPos.append(structure[1].T)
+    save_axsf(arg.output_folder, arg.FrameworkName, CellMatrixList, atomLabelList[1:], atomPosList[1:], ForcesList[1:])
 
-    cellMatrixList = [Cell.fromcellpar(i).array for i in CellParametersList]
-
-    save_axsf(arg.output_folder, arg.FrameworkName, cellMatrixList, atomTypes, cartPos, ForcesList)
-
-    # Create a directory to store the optimization history
+    # Create a directory to store the optimization history as cif files
     save_path = os.path.join(arg.output_folder, 'OptimizationHistory')
     os.makedirs(save_path, exist_ok=True)
     for i in range(len(CellParametersList)):
-        tempStructure = Atoms(StructureList[i][0],
+        tempStructure = Atoms(atomLabelList[i],
                               cell=CellParametersList[i],
                               pbc=(1, 1, 1),
-                              positions=StructureList[i][1].T)
+                              positions=atomPosList[i])
 
         print('Saving structure ' + str(i + 1) + ' of ' + str(len(CellParametersList)))
 
@@ -105,10 +96,10 @@ if arg.SaveHistory:
 
 
 # Write the final structure to file
-tempStructure = Atoms(StructureList[-1][0],
+tempStructure = Atoms(atomLabelList[-1],
                       cell=CellParametersList[-1],
                       pbc=(1, 1, 1),
-                      positions=StructureList[-1][1].T)
+                      positions=atomPosList[-1])
 
 print('Saving optimized structure.')
 

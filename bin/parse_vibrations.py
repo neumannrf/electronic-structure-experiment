@@ -7,7 +7,8 @@ import os
 import argparse
 import numpy as np
 
-from modules.calculate_properties import get_vibrational_data, lorentzian
+from modules.calculate_properties import lorentzian
+from modules.parse_cp2k import get_vibrational_data
 from modules.io_files import saveVibrationalVectors, saveVibrationalChemicalJSON
 
 # Required parameters

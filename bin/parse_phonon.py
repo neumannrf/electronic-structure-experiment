@@ -352,12 +352,11 @@ I_raman = np.zeros((len(frequencies), 3))
 # Calculate absolute Raman intensity: Total, Perpendicular, and Parallel considering
 # incident linear polarized radiation
 for k in range(len(frequencies)):
-    if frequencies[k] > 1e-3:  # there are no physical meaning on imaginary frequencies
-        I_total = 45 * a_sq[k] + 7 * gamma_sq[k] + 5 * delta_sq[k]
-        I_perpendicular = 45 * a_sq[k] + 4 * gamma_sq[k]
-        I_parallel = 3 * gamma_sq[k] + 5 * delta_sq[k]
+    I_total = 45 * a_sq[k] + 7 * gamma_sq[k] + 5 * delta_sq[k]
+    I_perpendicular = 45 * a_sq[k] + 4 * gamma_sq[k]
+    I_parallel = 3 * gamma_sq[k] + 5 * delta_sq[k]
 
-        I_raman[k] = np.array([I_total, I_perpendicular, I_parallel]).flatten() / 45
+    I_raman[k] = np.array([I_total, I_perpendicular, I_parallel]).flatten() / 45
 
 cs = diff_cross_section(frequencies, arg.LaserWaveLength, arg.ExternalTemperature)
 
@@ -365,8 +364,7 @@ cs = diff_cross_section(frequencies, arg.LaserWaveLength, arg.ExternalTemperatur
 raman_cross_section = np.zeros((len(frequencies), 3))
 
 for k in range(len(frequencies)):
-    if frequencies[k] > 1e-3:  # there are no physical meaning on imaginary frequencies
-        raman_cross_section[k] = cs[k] * I_raman[k]
+    raman_cross_section[k] = cs[k] * I_raman[k]
 
 # Prepare the Raman data to save as a csv file
 raman_data = [[i, ir_labels[i], freq, *I_raman[i], *raman_cross_section[i]] for i, freq in enumerate(frequencies)]

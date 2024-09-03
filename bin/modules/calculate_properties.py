@@ -229,115 +229,6 @@ def get_CM5AtomicCharges(output_filename: str) -> list[float]:
     return charges
 
 
-def get_vibrational_data(CP2K_output_name) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Get the vibrational data from the CP2K output file.
-
-    Parameters
-    ----------
-    CP2K_output_name : str
-        Path to the CP2K output file.
-
-    Returns
-    -------
-    frequency : np.ndarray
-        Array of the vibrational frequencies in cm^-1
-    IR_intensity : np.ndarray
-        Array of the IR intensities in KM/Mole
-    RAMAN_intensity : np.ndarray
-        Array of the RAMAN intensities in A^4/AMU
-    """
-    output_file = open(CP2K_output_name, 'r').read().splitlines()
-
-    # Find the line with the text: "NORMAL MODES - CARTESIAN DISPLACEMENTS"
-    normal_modes = None
-
-    for i, line in enumerate(output_file):
-        if 'NORMAL MODES - CARTESIAN DISPLACEMENTS' in line:
-            normal_modes = output_file[i:]
-
-    frequency = np.array([])
-    IR_intensity = np.array([])
-    RAMAN_intensity = np.array([])
-
-    for i, line in enumerate(normal_modes):
-        if ' VIB|Frequency (cm^-1)' in line:
-            freq = np.array([n.replace('*', '0') for n in line.split()[2:]]).astype(float)
-            frequency = np.append(frequency, freq)
-        if 'VIB|IR int (KM/Mole)' in line:
-            ir_int = np.array([n.replace('*', '0') for n in line.split()[3:]]).astype(float)
-            IR_intensity = np.append(IR_intensity, ir_int)
-        if ' VIB|Raman (A^4/amu)' in line:
-            raman_int = np.array([n.replace('*', '0') for n in line.split()[2:]]).astype(float)
-            RAMAN_intensity = np.append(RAMAN_intensity, raman_int)
-
-    return frequency, IR_intensity, RAMAN_intensity
-
-
-def get_MoldenData(OutputFolder, Frameworkname):
-    """
-    Get the vibrational information from the molden file.
-
-    Parameters
-    ----------
-    Frameworkname : str
-        Name of the framework.
-
-    Returns
-    -------
-    eigenVectors : list
-        List of the vibrational vectors.
-    modes : list
-        List of the vibrational modes.
-    atom_labels : list
-        List of the atomic labels.
-    atom_pos : list
-        List of the atomic positions.
-    """
-    # Read the molden file
-    with open(os.path.join(OutputFolder, f'{Frameworkname}-VIBRATIONS-1.mol')) as f:
-        molden_file = f.read().splitlines()
-
-    position = {' [FREQ]': None,
-                ' [FR-COORD]': None,
-                ' [FR-NORM-COORD]': None,
-                ' [INT]': None
-                }
-
-    for i, line in enumerate(molden_file):
-        if line in position.keys():
-            position[line] = i
-
-    atom_list = molden_file[position[' [FR-COORD]'] + 1: position[' [FR-NORM-COORD]']]
-    atom_labels = [atom.split()[0] for atom in atom_list]
-    atom_pos = np.array([atom.split()[1:] for atom in atom_list]).astype(float)
-
-    freq_list = molden_file[position[' [FREQ]'] + 1: position[' [FR-COORD]']]
-
-    # convert atom_pos from bohr to angstrom
-    atom_pos *= 0.529177
-
-    # Create the string combinin the atom labels and positions
-    atom_list = []
-
-    for i, atom in enumerate(atom_pos):
-        atom_list.append(f"{atom_labels[i]:3}     {atom[0]:15.9f}   {atom[1]:15.9f} {atom[2]:15.9f} ")
-
-    vibrations = molden_file[position[' [FR-NORM-COORD]'] + 1: position[' [INT]']]
-
-    # Reshape vibrations to the shape of (len(atom_list) + 1, -1)
-    vibrations = [vibrations[i + 1:i + len(atom_list) + 1] for i in range(0, len(vibrations), len(atom_list) + 1)]
-
-    eigenVectors = [[i.split() for i in mode] for mode in vibrations]
-    eigenVectors = [[float(i) for sublist in mode for i in sublist] for mode in eigenVectors]
-
-    intensity = [float(i) for i in molden_file[position[' [INT]'] + 1:]]
-
-    modes = [i + 1 for i in range(len(intensity))]
-
-    return atom_labels, atom_pos, vibrations, modes, eigenVectors, intensity, freq_list
-
-
 def lorentzian(x, x0, gamma) -> np.ndarray[float]:
     return 1/np.pi * gamma / ((x-x0)**2 + gamma**2)
 
@@ -353,27 +244,6 @@ def getCellParametersFromOptimization(outputfolder, FrameworkName) -> list[np.nd
     cellParameters = [Cell(i).cellpar() for i in cellList]
 
     return cellParameters
-
-
-def getStructuresFromOptimization(outputfolder, FrameworkName) -> list:
-
-    # Open the FrameworkName-pos-1 file
-    with open(os.path.join(outputfolder, FrameworkName + '-pos-1.xyz'), 'r') as f:
-        lines = f.read().splitlines()
-
-    n_atoms = int(lines[0])
-
-    # Reshape lines to have the shape (n_atoms + 2, -1)
-    lines = [i[2:] for i in np.array(lines).reshape((-1, n_atoms + 2))]
-
-    structure_list = []
-
-    for structure in lines:
-        atom_labels = [i.split()[0] for i in structure]
-        atom_pos = np.array([np.array(i.split()[1:]).astype(float) for i in structure]).T
-        structure_list.append([atom_labels, atom_pos])
-
-    return structure_list
 
 
 def getForcesFromOptimization(outputfolder, FrameworkName) -> list:
@@ -393,16 +263,19 @@ def getForcesFromOptimization(outputfolder, FrameworkName) -> list:
         List of the forces.
     """
 
-    # List the files in the output folder with name {FrameworkName}-forces-1_1.xyz
-    files = [i for i in os.listdir(outputfolder) if f'{FrameworkName}-forces-1' in i]
+    with open(os.path.join(outputfolder, FrameworkName + '-frc-1.xyz'), 'r') as f:
+        lines = f.read().splitlines()
 
-    forces_list = []
+    n_atoms = int(lines[0])
 
-    for i in range(len(files)):
-        forces_list.append(get_forces(FileName=f'{FrameworkName}-forces-1_{i + 1}',
-                                      output_folder=outputfolder))
+    # Reshape lines to be (n_atoms + 2, -1)
+    forces_list = [i[2:] for i in np.array(lines).reshape((-1, n_atoms + 2))]
+
+    # Remove the atom label (first column) and convert the forces to float
+    forces_list = [np.array([np.array(i.split()[1:]).astype(float) for i in structure]) for structure in forces_list]
 
     return forces_list
+
 
 def get_spg_class(spgnum) -> str:
     """
@@ -864,7 +737,7 @@ def create_input_file(FrameworkName: str,
             fhandle.write(f"{line}\n")
 
 
-def get_forces(FrameworkName, output_folder):
+def get_forces(FileName, output_folder):
     """ Get the CP2K forces from the output file in atomic units [Hartree/a.u.]
 
     Parameters
@@ -880,18 +753,23 @@ def get_forces(FrameworkName, output_folder):
         Nx3 Array of the forces in atomic units [a.u.]
     """
 
-    with open(os.path.join(output_folder, f"{FrameworkName}-forces-1_0.xyz"), "r") as f:
+    with open(os.path.join(output_folder, FileName), "r") as f:
         lines = f.read().splitlines()
 
-    forces = []
+    forces_list = []
 
     for line in lines[4:-1]:
-        forces.append([float(i) for i in line.split()[3:]])
+        try:
+            forces = np.array(line.split()[3:]).astype(float)
+        except Exception:
+            print(f'Error: Could not read forces for {FileName}')
+            forces = np.zeros(3)
+        if np.any(np.isnan(forces)) or np.any(np.isinf(forces)):
+            print(f'Warning: Found NaN or Inf values on forces for {FileName}')
 
-    if np.any(np.isnan(forces)) or np.any(np.isinf(forces)):
-        print(f'Warning: Found NaN or Inf values on forces for {output_folder}')
+        forces_list.append(forces)
 
-    return np.array(forces)
+    return np.array(forces_list)
 
 
 def get_pol_tensor(file_name, output_folder, symmetrize=False):

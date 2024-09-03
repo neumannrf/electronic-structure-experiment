@@ -12,9 +12,9 @@ from textwrap import dedent
 from ase.cell import Cell
 
 from modules.atom_data import ATOMIC_NUMBER
-from modules.calculate_properties import (get_MoldenData,
-                                          get_vibrational_data,
-                                          get_CellParameters)
+from modules.calculate_properties import get_CellParameters
+from modules.parse_cp2k import (get_MoldenData,
+                                get_vibrational_data)
 
 
 def readChemicalJSON(FrameworkName: str, OutputFolder: str = '.', **kwargs):
@@ -545,7 +545,7 @@ def save_axsf(output_folder,
     cellMatrix : list
         3 x 3 list of the cell matrix
     atomTypes : list
-        N x 3 list of the atomic types
+        N x 1 list of the atomic types
     cartPos : list
         N x 3 list of the atomic positions in cartesian coordinates
     shiftVecs : list
@@ -556,15 +556,14 @@ def save_axsf(output_folder,
         axsf_txt += f'ANIMSTEPS {len(shiftVecs)}\n'
     axsf_txt += 'CRYSTAL\n'
 
-    if np.array(cellMatrix).shape == (3, 3):
-        cellMatrix = [cellMatrix for i in range(len(shiftVecs))]
+    #if np.array(cellMatrix).shape == (3, 3):
+    #    cellMatrix = [cellMatrix for i in range(len(shiftVecs))]
 
-    if np.array(atomTypes).shape != (len(shiftVecs), len(atomTypes)):
-        atomTypes = [atomTypes for i in range(len(shiftVecs))]
+    #if np.array(atomTypes).shape != (len(shiftVecs), len(atomTypes)):
+    #    atomTypes = [atomTypes for i in range(len(shiftVecs))]
 
-    if np.array(cartPos).shape != (len(shiftVecs), len(atomTypes), 3):
-        cartPos = [cartPos for i in range(len(shiftVecs))]
-
+    #if np.array(cartPos).shape != (len(shiftVecs), len(atomTypes), 3):
+    #    cartPos = [cartPos for i in range(len(shiftVecs))]
     for i in range(len(shiftVecs)):
         axsf_txt += f'PRIMVEC {i + 1}\n'
         for j in range(3):
@@ -572,6 +571,7 @@ def save_axsf(output_folder,
         axsf_txt += f'PRIMCOORD {i + 1}\n'
         axsf_txt += f'{len(atomTypes[i])} 1\n'
         for j in range(len(atomTypes[i])):
+            print(shiftVecs[i][j][0])
             axsf_txt += '{:3} {:12.7f} {:12.7f} {:12.7f} {:12.7f} {:12.7f} {:12.7f}\n'.format(atomTypes[i][j],
                                                                                               cartPos[i][j][0],
                                                                                               cartPos[i][j][1],
