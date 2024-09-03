@@ -12,7 +12,7 @@ from ase.cell import Cell
 from cp2k_input_tools.generator import CP2KInputGenerator
 from modules.atom_data import BASIS_SET, PSEUDO_POTENTIALS
 from phonopy.harmonic.force_constants import similarity_transformation
-from modules.constants import (c, eps_0, k_B, h, nm2cm)
+from modules.constants import (c, k_B, h)
 
 
 def calculate_Perpendicular_Widths(cif_filename: str) -> tuple[float, float, float]:
