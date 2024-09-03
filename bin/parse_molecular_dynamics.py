@@ -10,6 +10,8 @@ from ase import Atoms
 
 from modules.parse_cp2k import (getCellParameters, getStructures, getEnergies, getForces, getStress)
 
+from modules.io_files import save_axsf
+
 # Required parameters
 parser = argparse.ArgumentParser(description='Create the Chargemol simulation input.')
 parser.add_argument('output_folder',
@@ -35,21 +37,38 @@ arg = parser.parse_args()
 with open(os.path.join(arg.output_folder, 'simulation_MolecularDynamics.out'), 'r') as f:
     lines = f.readlines()
 
-CellParametersList = getCellParameters(arg.output_folder, arg.FrameworkName)
-StructureList = getStructures(arg.output_folder, arg.FrameworkName)
-EnergyList = getEnergies(arg.output_folder, arg.FrameworkName)
+CellMatrixList, CellParametersList = getCellParameters(arg.output_folder, arg.FrameworkName)
+atomLabelList, atomPosList = getStructures(arg.output_folder, arg.FrameworkName)
 ForcesList = getForces(arg.output_folder, arg.FrameworkName)
+EnergyList = getEnergies(arg.output_folder, arg.FrameworkName)
 StressList = getStress(arg.output_folder, arg.FrameworkName)
 
-# To-Do: Save the history of the optimization
+# Save the optimization history
+if arg.SaveHistory:
+
+    # Save the axsf file with the optimization history
+    save_axsf(arg.output_folder, arg.FrameworkName, CellMatrixList, atomLabelList, atomPosList, ForcesList)
+
+    # Create a directory to store the optimization history as cif files
+    save_path = os.path.join(arg.output_folder, 'MolecularDynamicsHistory')
+    os.makedirs(save_path, exist_ok=True)
+    for i in range(len(CellParametersList)):
+        tempStructure = Atoms(atomLabelList[i],
+                              cell=CellParametersList[i],
+                              pbc=(1, 1, 1),
+                              positions=atomPosList[i])
+
+        print('Saving structure ' + str(i + 1) + ' of ' + str(len(CellParametersList)))
+
+        tempStructure.write(os.path.join(save_path, arg.FrameworkName + '_MD_' + str(i + 1) + '.cif'))
 
 
 # Write the final structure to file
-tempStructure = Atoms(StructureList[-1][0],
+tempStructure = Atoms(atomLabelList[-1],
                       cell=CellParametersList[-1],
                       pbc=(1, 1, 1),
-                      positions=StructureList[-1][1].T)
+                      positions=atomPosList[-1])
 
 print('Saving optimized structure.')
 
-tempStructure.write(os.path.join(arg.output_folder, arg.FrameworkName + '_optimized' + '.cif'))
+tempStructure.write(os.path.join(arg.output_folder, arg.FrameworkName + '_last' + '.cif'))

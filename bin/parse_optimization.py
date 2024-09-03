@@ -11,7 +11,6 @@ from ase import Atoms
 from modules.parse_cp2k import (getCellParameters, getStructures, getForces)
 
 from modules.io_files import save_axsf
-from ase.cell import Cell
 
 # Required parameters
 parser = argparse.ArgumentParser(description='Create the Chargemol simulation input.')

@@ -214,7 +214,7 @@ parser.add_argument('--Temperature',
                     action='store',
                     required=False,
                     metavar='TEMPERATURE',
-                    help='Temperature used for the molecular dynamics simulation.')
+                    help='Temperature in Kelvin used for the molecular dynamics simulation.')
 parser.add_argument('--TimeStep',
                     type=float,
                     default=1.0,
@@ -235,7 +235,7 @@ parser.add_argument('--Pressure',
                     action='store',
                     required=False,
                     metavar='PRESSURE',
-                    help='Pressure used for the molecular dynamics simulation on NPT_F ensemble.')
+                    help='Pressure in bar used for the molecular dynamics simulation on NPT_F ensemble.')
 
 # Parse the arguments
 arg = parser.parse_args()
@@ -379,7 +379,7 @@ motion_dict['+md'] = {
             "ensemble": arg.Ensemble,
             "temperature": arg.Temperature,
             "timestep": arg.TimeStep,
-            "steps": arg.MDSteps,
+            "steps": arg.NumberOfSteps,
             "+thermostat": {
                 "type": 'CSVR',
                 "+csvr": {'timecon': 0.1},
@@ -401,6 +401,7 @@ if arg.FixedAtoms is not None:
 input_dict = {
     "+global": Global_Dict,
     "+force_eval": [Force_Eval_Dict],
+    "+motion": motion_dict
     }
 
 generator = CP2KInputGenerator()
