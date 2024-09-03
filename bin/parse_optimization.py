@@ -8,7 +8,12 @@ import argparse
 
 from ase import Atoms
 
-from modules.calculate_properties import getCellParametersFromOptimization, getStructuresFromOptimization
+from modules.calculate_properties import (getCellParametersFromOptimization,
+                                          getStructuresFromOptimization,
+                                          getForcesFromOptimization)
+
+from modules.io_files import save_axsf
+from ase.cell import Cell
 
 # Required parameters
 parser = argparse.ArgumentParser(description='Create the Chargemol simulation input.')
@@ -70,8 +75,21 @@ if not optimized and not lbfgs_error:
 
 CellParametersList = getCellParametersFromOptimization(arg.output_folder, arg.FrameworkName)
 StructureList = getStructuresFromOptimization(arg.output_folder, arg.FrameworkName)
+ForcesList = getForcesFromOptimization(arg.output_folder, arg.FrameworkName)
 
 if arg.SaveHistory:
+
+    # Save the axsf file with the optimization history
+    atomTypes = []
+    cartPos = []
+    for structure in StructureList[1:]:
+        atomTypes.append(structure[0])
+        cartPos.append(structure[1].T)
+
+    cellMatrixList = [Cell.fromcellpar(i).array for i in CellParametersList]
+
+    save_axsf(arg.output_folder, arg.FrameworkName, cellMatrixList, atomTypes, cartPos, ForcesList)
+
     # Create a directory to store the optimization history
     save_path = os.path.join(arg.output_folder, 'OptimizationHistory')
     os.makedirs(save_path, exist_ok=True)

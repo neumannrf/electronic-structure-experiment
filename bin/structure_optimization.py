@@ -159,7 +159,7 @@ parser.add_argument('--DispersionCorrection',
                     default='DFTD3',
                     action='store',
                     required=False,
-                    choices=['DFTD3', 'DFTD3(BJ)'],
+                    choices=['None', 'DFTD2', 'DFTD3', 'DFTD3(BJ)'],
                     metavar='DISPERSION_CORRECTION',
                     help='Dispersion correction used to calculate the total energy')
 parser.add_argument('--BasisSet',
@@ -339,18 +339,7 @@ if arg.Functional == 'XTB':
 
 if arg.Functional == 'PBE':
     Force_Eval_Dict["+dft"]['+xc'] = {
-                    "+xc_functional": {
-                        "_": arg.Functional
-                    },
-                    "+vdw_potential": {
-                        "potential_type": "pair_potential",
-                        "+pair_potential": {
-                            "type": arg.DispersionCorrection,
-                            "reference_functional": arg.Functional,
-                            "r_cutoff": 16,
-                            "parameter_file_name": f"{arg.CP2KDataDir}/dftd3.dat"
-                            }
-                        }
+                    "+xc_functional": {"_": arg.Functional}
                     }
     Force_Eval_Dict["+dft"]['+mgrid'] = {
         'cutoff': arg.PWCutoff,
@@ -367,6 +356,16 @@ if arg.Functional == 'PBE':
 
     Force_Eval_Dict["+subsys"]["+kind"] = Kind_List
 
+if arg.DispersionCorrection != 'None':
+    Force_Eval_Dict["+dft"]['+xc']["+vdw_potential"] = {
+                        "potential_type": "pair_potential",
+                        "+pair_potential": {
+                            "type": arg.DispersionCorrection,
+                            "reference_functional": arg.Functional,
+                            "r_cutoff": 16,
+                            "parameter_file_name": f"{arg.CP2KDataDir}/dftd3.dat"
+                            }
+                        }
 if arg.UseOT:
     Force_Eval_Dict["+dft"]['+scf']["+ot"] = {"minimizer": "DIIS",
                                               "n_diis": 7,
