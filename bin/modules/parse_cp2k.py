@@ -138,9 +138,7 @@ def getForces(outputfolder: str, FrameworkName: str) -> list:
     force_list = []
 
     for structure in lines:
-        #atom_labels = [i.split()[0] for i in structure]
         force_list.append(np.array([np.array(i.split()[1:]).astype(float) for i in structure]))
-        #force_list.append([atom_labels, atom_pos.tolist()])
 
     return force_list
 
@@ -269,7 +267,7 @@ def get_vibrational_data(CP2K_output_name) -> tuple[np.ndarray, np.ndarray, np.n
     IR_intensity = np.array([])
     RAMAN_intensity = np.array([])
 
-    for i, line in enumerate(normal_modes):
+    for line in normal_modes:
         if ' VIB|Frequency (cm^-1)' in line:
             freq = np.array([n.replace('*', '0') for n in line.split()[2:]]).astype(float)
             frequency = np.append(frequency, freq)

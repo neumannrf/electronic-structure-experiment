@@ -342,9 +342,9 @@ for k in range(len(frequencies)):
     gamma_sq[k] = 1/2 * (np.square(alpha[k][0][0] - alpha[k][1][1])
                          + np.square(alpha[k][1][1] - alpha[k][2][2])
                          + np.square(alpha[k][2][2] - alpha[k][0][0])) \
-                + 3/4 * (np.square(alpha[k][0][1] + alpha[k][1][0])
-                         + np.square(alpha[k][0][2] + alpha[k][2][0])
-                         + np.square(alpha[k][1][2] + alpha[k][2][1]))
+        + 3/4 * (np.square(alpha[k][0][1] + alpha[k][1][0])
+                 + np.square(alpha[k][0][2] + alpha[k][2][0])
+                 + np.square(alpha[k][1][2] + alpha[k][2][1]))
 
 # Create the Raman Intensities vector
 I_raman = np.zeros((len(frequencies), 3))
