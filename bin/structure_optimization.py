@@ -167,7 +167,7 @@ parser.add_argument('--BasisSet',
                     default='DZVP',
                     action='store',
                     required=False,
-                    choices=['DZVP', 'TZV2P'],
+                    choices=['SZV', 'DZVP', 'TZVP', 'TZV2P'],
                     metavar='BASIS_SET',
                     help='Gaussian basis set type.')
 parser.add_argument('--SCFGuess',
