@@ -221,8 +221,8 @@ for i in IndAtoms['primitive']:
         for sl, s in [['+', +1], ['-', -1]]:
             dirVec = np.array(dirVec) * s
 
-            outName = f'{arg.FrameworkName}_{i}_{sl}{label}'
-            forces = get_forces(outName, f'{i}_{sl}{label}-forces-1_0')
+            outName = f'{arg.FrameworkName}_{i}_{sl}{label}-forces-1_0.xyz'
+            forces = get_forces(outName, f'{i}_{sl}{label}')
 
             displacement_dict['first_atoms'].append({
                 'number': i,
