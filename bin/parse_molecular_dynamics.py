@@ -9,6 +9,7 @@ import argparse
 from ase import Atoms
 
 from modules.parse_cp2k import (getCellParameters, getStructures, getEnergies, getForces, getStress)
+from modules.io_files import saveCIF
 
 from modules.io_files import save_axsf
 
@@ -60,15 +61,26 @@ if arg.SaveHistory:
 
         print('Saving structure ' + str(i + 1) + ' of ' + str(len(CellParametersList)))
 
-        tempStructure.write(os.path.join(save_path, arg.FrameworkName + '_MD_' + str(i + 1) + '.cif'))
-
+        saveCIF(OutputFolder=save_path,
+                FrameworkName=arg.FrameworkName + '_MD_' + str(i + 1),
+                CellParameters=CellParametersList[i],
+                labels=atomLabelList[i],
+                frac_x=tempStructure.get_scaled_positions()[:, 0],
+                frac_y=tempStructure.get_scaled_positions()[:, 1],
+                frac_z=tempStructure.get_scaled_positions()[:, 2])
 
 # Write the final structure to file
-tempStructure = Atoms(atomLabelList[-1],
+lastStructure = Atoms(atomLabelList[-1],
                       cell=CellParametersList[-1],
                       pbc=(1, 1, 1),
                       positions=atomPosList[-1])
 
 print('Saving optimized structure.')
 
-tempStructure.write(os.path.join(arg.output_folder, arg.FrameworkName + '_last' + '.cif'))
+saveCIF(OutputFolder=arg.output_folder,
+        FrameworkName=arg.FrameworkName + '_last',
+        CellParameters=CellParametersList[-1],
+        labels=atomLabelList[-1],
+        frac_x=lastStructure.get_scaled_positions()[:, 0],
+        frac_y=lastStructure.get_scaled_positions()[:, 1],
+        frac_z=lastStructure.get_scaled_positions()[:, 2])

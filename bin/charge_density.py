@@ -236,7 +236,7 @@ Coord_Dict = {
 
 Kind_List = []
 
-for i, specie in enumerate(set(AtomicTypes)):
+for specie in set(AtomicTypes):
     Kind_List.append({
         "_": specie,
         'element': specie,

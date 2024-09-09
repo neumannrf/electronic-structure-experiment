@@ -347,12 +347,12 @@ def saveCIF(FrameworkName: str,
     cif_file = dedent(f"""\
 data_{FrameworkName}
 _chemical_name_common                  '{FrameworkName}'
-_cell_length_a                          {CellParameters[0]:10.5f}
-_cell_length_b                          {CellParameters[1]:10.5f}
-_cell_length_c                          {CellParameters[2]:10.5f}
-_cell_angle_alpha                       {CellParameters[3]:10.5f}
-_cell_angle_beta                        {CellParameters[4]:10.5f}
-_cell_angle_gamma                       {CellParameters[5]:10.5f}
+_cell_length_a                          {CellParameters[0]:15.9f}
+_cell_length_b                          {CellParameters[1]:15.9f}
+_cell_length_c                          {CellParameters[2]:15.9f}
+_cell_angle_alpha                       {CellParameters[3]:15.9f}
+_cell_angle_beta                        {CellParameters[4]:15.9f}
+_cell_angle_gamma                       {CellParameters[5]:15.9f}
 
 _symmetry_cell_setting          triclinic
 _symmetry_space_group_name_Hall 'P 1'
@@ -556,14 +556,6 @@ def save_axsf(output_folder,
         axsf_txt += f'ANIMSTEPS {len(shiftVecs)}\n'
     axsf_txt += 'CRYSTAL\n'
 
-    #if np.array(cellMatrix).shape == (3, 3):
-    #    cellMatrix = [cellMatrix for i in range(len(shiftVecs))]
-
-    #if np.array(atomTypes).shape != (len(shiftVecs), len(atomTypes)):
-    #    atomTypes = [atomTypes for i in range(len(shiftVecs))]
-
-    #if np.array(cartPos).shape != (len(shiftVecs), len(atomTypes), 3):
-    #    cartPos = [cartPos for i in range(len(shiftVecs))]
     for i in range(len(shiftVecs)):
         axsf_txt += f'PRIMVEC {i + 1}\n'
         for j in range(3):
