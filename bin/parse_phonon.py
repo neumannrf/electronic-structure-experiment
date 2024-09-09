@@ -353,8 +353,8 @@ I_raman = np.zeros((len(frequencies), 3))
 # incident linear polarized radiation
 for k in range(len(frequencies)):
     I_total = 45 * a_sq[k] + 7 * gamma_sq[k] + 5 * delta_sq[k]
-    I_perpendicular = 45 * a_sq[k] + 4 * gamma_sq[k]
-    I_parallel = 3 * gamma_sq[k] + 5 * delta_sq[k]
+    I_parallel = 45 * a_sq[k] + 4 * gamma_sq[k]
+    I_perpendicular = 3 * gamma_sq[k] + 5 * delta_sq[k]
 
     I_raman[k] = np.array([I_total, I_perpendicular, I_parallel]).flatten() / 45
 
