@@ -202,10 +202,10 @@ parser.add_argument('--FixedAtoms',
                     help='List of atoms as a string to be kept fixed during the optimization. Eg. 1..10,20,30..40')
 parser.add_argument('--Ensemble',
                     type=str,
-                    default='NVT',
+                    default='NPT_F',
                     action='store',
                     required=False,
-                    choices=['NVE', 'NVT', 'NPT_F'],
+                    choices=['NVE', 'NVT', 'NPT_I', 'NPT_F'],
                     metavar='ENSEMBLE',
                     help='Ensemble used for the molecular dynamics simulation.')
 parser.add_argument('--Temperature',
@@ -235,7 +235,7 @@ parser.add_argument('--Pressure',
                     action='store',
                     required=False,
                     metavar='PRESSURE',
-                    help='Pressure in bar used for the molecular dynamics simulation on NPT_F ensemble.')
+                    help='Pressure in bar used for the molecular dynamics simulation on NPT_I and NPT_F ensemble.')
 
 # Parse the arguments
 arg = parser.parse_args()

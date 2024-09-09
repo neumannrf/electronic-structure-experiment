@@ -2,16 +2,17 @@
 
 The Electronic Structure Experiment (ESE) package currently supports the following simulations:
 
-- Charge density calculation:
-  - Band gap calculation
-  - HOMO and LUMO orbital plots
-- Partial charges calculation:
-  - CM5 charges
-  - DDEC charges
-- Geometry optimization
-- Vibrational frequencies calculation
-  - FTIR spectra
+- [Charge density calculation](#charge-density-calculation):
+  - [Band gap calculation](#band-gap-calculation)
+  - [HOMO and LUMO orbital plots](#molecular-orbital-plots)
+  - [Partial charges calculation](#partial-charges):
+    - CM5 charges
+    - DDEC charges
+- [Geometry optimization](#geometry-optimization)
+- [Vibrational frequencies calculation](#vibrational-frequencies-calculation)
+  - FTIR spectra (Implementation on development)
   - Raman spectra
+- [Born-Oppenheimer Molecular Dynamics](#born-oppenheimer-molecular-dynamics-bomd)
 
 ## Environment variables
 
@@ -62,8 +63,8 @@ The calculation of partial charges can be divided into two main steps:
 - Generating a charge density file (`.cube`): The `charge_density.py` script is used to generate the input for CP2K simulation. This can be done using the `--WriteDensity` option.
 
   - Only the `PBE` functional is supported for the charge density calculation.
-  - The `DFTD3(BJ)` and `DFTD3` dispersion corrections are supported.
-  - The `DZVP` and `TZV2P` basis sets are supported.
+  - The `DFTD2`, `DFTD3`, `DFTD3(BJ)`, and `None` dispersion corrections are supported.
+  - The `SVZ`, `DZVP`, `TZVP`, and `TZV2P` basis sets are supported.
 
 - Calculating the partial charges using Chargemol: The [Chargemol](https://sourceforge.net/projects/ddec/files/?source=navbar) software is used to calculate the partial charges.
   - `CM5` and `DDEC` schemes are supported. The `DDEC` is recomended.
@@ -138,8 +139,8 @@ For details of the DDEC method please see [J. Chem. Theory Comput. 2012, 8, 8, 2
 
 The band gap is calculated directly by CP2K with the input created by the `charge_density.py` script. The only requirement is to add some unnoccupied states to the simulation. The band gap accuracy is extremally dependent of the level of theory used in the simulation. Currently only the `PBE` functional is implemented, although it is not the best choice for band gap calculations. *In the future the `PBE0` and `HSE06` functionals will be implemented.*
 
-- The `DFTD3(BJ)` and `DFTD3` dispersion corrections are supported.
-- The `DZVP` and `TZV2P` basis sets are supported.
+- The `DFTD2`, `DFTD3`, `DFTD3(BJ)`, and `None` dispersion corrections are supported.
+- The `SVZ`, `DZVP`, `TZVP`, and `TZV2P`  basis sets are supported.
 
 ```bash
 #!/bin/bash
@@ -188,8 +189,8 @@ The plot of the molecular orbitals can be activate using the `--WriteMO` option.
 
 Currently only the `PBE` functional is implemented, although it is not the best choice for band gap calculations. *In the future the `PBE0` and `HSE06` functionals will be implemented.*
 
-- The `DFTD3(BJ)` and `DFTD3` dispersion corrections are supported.
-- The `DZVP` and `TZV2P` basis sets are supported.
+- The `DFTD2`, `DFTD3`, `DFTD3(BJ)`, and `None` dispersion corrections are supported.
+- The `SVZ`, `DZVP`, `TZVP`, and `TZV2P` basis sets are supported.
 
 ```bash
 #!/bin/bash
@@ -240,8 +241,8 @@ The geometry optimization can be divided into two main steps:
 
 - The `structure_optimization.py` script is used to generate the input for CP2K simulation. Here you can define the functional, the basis set, the dispersion correction, the plane wave cutoff, etc.
   - The `PBE` and `XTB` functionals are supported.
-  - The `DFTD3(BJ)` and `DFTD3` dispersion corrections are supported.
-  - The `DZVP` and `TZV2P` basis sets are supported.
+  - The `DFTD2`, `DFTD3`, `DFTD3(BJ)`, and `None` dispersion corrections are supported.
+  - The `SVZ`, `DZVP`, `TZVP`, and `TZV2P`  basis sets are supported.
   - The `--KeepSymmetry` can be used to force that the inicial symmetry of the structure is kept during the optimization.
 
 - The `parse_optimization.py` script is used to parse the CP2K output file and create a new cif file with the optimized structure.
@@ -294,8 +295,8 @@ The `--SaveHistory` option will save all the intermediary structures of the opti
 The vibrational frequencies are calculated numerically using the finite difference method. The `raman_ir.py` script is used to generate the input for CP2K simulation.
 
 - The `PBE` and `XTB` functionals are supported.
-- The `DFTD3(BJ)` and `DFTD3` dispersion corrections are supported.
-- The `DZVP` and `TZV2P` basis sets are supported.
+- The `DFTD2`, `DFTD3`, `DFTD3(BJ)`, and `None` dispersion corrections are supported.
+- The `SVZ`, `DZVP`, `TZVP`, and `TZV2P`  basis sets are supported.
 - The `--CalculateRaman` option can be used to calculate the Raman spectrum.
 - The `--CalculateIR` option can be used to calculate the IR spectrum.
 - The `--ProcsPerReplica` option can be used to define the number of MPI processes per replica. The total number of MPI processes will be `NProcs = NReplicas * ProcsPerReplica`.
@@ -356,3 +357,70 @@ parse_vibrations.py --FrameworkName ${FrameworkName} \
 The `parse_vibrations.py` creates two csv files with the results. The `{FrameworkName}_RAMAN_IR_Curve.csv` that holds the Raman and/or the IR curve created by adjusting a Lorentzian function to the calculated frequencies. The `{FrameworkName}_VibrationsTable.csv` that holds the calculated frequencies and intensities. The `--HalfWidth` option defines the half width of the Lorentzian function used to create the Raman and/or IR curve.
 
 The `--SaveVibrations` option creates a folder called `Vibrations` with `AXSF` files containing the displacements of the atoms for each vibration mode. It is possible to visualize the vibrations using the [VESTA](https://jp-minerals.org/vesta/en/) software.
+
+## Born-Oppenheimer Molecular Dynamics (BOMD)
+
+The Born-Oppenheimer Molecular Dynamics can be executed with the `molecular_dynamics.py` script.
+
+- The `PBE` and `XTB` functionals are supported.
+- The `DFTD3(BJ)` and `DFTD3` dispersion corrections are supported.
+- The `SVZ`, `DZVP`, `TZVP`, and `TZV2P` basis sets are supported.
+- The `NVE`, `NVT`, `NPT_I`, and `NPT_F` ensembles are supported.
+  - The `NVE` ensemble is used to simulate the system at constant volume and energy.
+  - The `NVT` ensemble is used to simulate the system at constant volume and temperature.
+  - The `NPT_I` ensemble is used to simulate the system at constant pressure and temperature using an isotropic cell.
+  - The `NPT_F` ensemble is used to simulate the system at constant pressure and temperature using a flexible cell. (Default)
+
+Currently only the Canonical Sampling through Velocity Rescaling (CSVR) thermostat are available.
+
+The `parse_molecular_dynamics.py` script is used to parse the CP2K output file. The last frame of the trajectory will be saved as a `_last.cif` file.
+
+```bash
+#!/bin/bash
+
+# Define global environment variables
+export PATH=$PATH:/dccstor/nanopore-2945/electronic-density-experiment/bin/
+
+export CP2K_DIR=/dccstor/nanopore-2945/cp2k/cp2k-v2023.1
+export CP2K_DATA_DIR=${CP2K_DIR}/data
+
+export OMP_NUM_THREADS=1
+
+# Define specific variables
+FrameworkName='MgMOF-74'
+OutputFolder=$PWD
+NProcs=36
+
+# Load the CP2K setup script
+source ${CP2K_DIR}/tools/toolchain/install/setup
+
+# First ensure that the CIF file has all atoms explicitly defined in a P1 cell
+echo -e "\nCreating primitive P1 cell..."
+pmg structure --convert --filename ${OutputFolder}/${FrameworkName}.cif ${OutputFolder}/${FrameworkName}_prim.cif
+mv -v ${OutputFolder}/${FrameworkName}_prim.cif ${OutputFolder}/${FrameworkName}.cif
+
+echo -e "\nCreating CP2K input file..."
+molecular_dynamics.py --FrameworkName ${FrameworkName} \
+                      --Functional "PBE" \
+                      --DispersionCorrection "DFTD3(BJ)" \
+                      --PWCutoff 1200 \
+                      --BasisSet "TZVP" \
+                      --UseOT \
+                      --Ensemble "NPT_F" \
+                      --Temperature 450 \
+                      --TimeStep 1.0 \
+                      --NumberOfSteps 100 \
+                      --Pressure 1 \
+                      ${OutputFolder}
+
+echo -e "\nRunning CP2K simulation with ${NProcs} MPI and ${OMP_NUM_THREADS} OMP process..."
+mpirun -np ${NProcs} $CP2K_DIR/exe/local/cp2k.psmp -i simulation_MolecularDynamics.inp -o simulation_MolecularDynamics.out
+
+parse_molecular_dynamics.py --FrameworkName ${FrameworkName} \
+                            --SaveHistory  \
+                            ${OutputFolder}
+```
+
+The `parse_vibrations.py` creates two csv files with the results. The `{FrameworkName}_RAMAN_IR_Curve.csv` that holds the Raman and/or the IR curve created by adjusting a Lorentzian function to the calculated frequencies. The `{FrameworkName}_VibrationsTable.csv` that holds the calculated frequencies and intensities. The `--HalfWidth` option defines the half width of the Lorentzian function used to create the Raman and/or IR curve.
+
+The `--SaveHistory` option creates a folder called `MolecularDynamicsHistory` with `cif` files containing the snapshots of the atoms for each vibration mode. It is possible to visualize these using the [VESTA](https://jp-minerals.org/vesta/en/) software. It will also save a `AXSF` file with the complete trajectory of the molecular dynamics. It is possible to visualize the trajectory using the [XCrysDen](http://www.xcrysden.org/) software.
