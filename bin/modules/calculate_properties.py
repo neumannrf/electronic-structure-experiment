@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache2.0
 
 import os
-from types import SimpleNamespace
 
 import gemmi
 import numpy as np
@@ -370,7 +369,62 @@ def get_kgrid(cell, dist=0.3) -> tuple[float, float, float]:
 
 def create_input_file(FrameworkName: str,
                       output_folder: str,
-                      **kwargs):
+                      CalcType: str = 'energy_force',
+                      Charge: int = 0,
+                      Multiplicity: int = 1,
+                      UseOT: bool = False,
+                      UseSmearing: bool = False,
+                      SmearingMethod: str = 'fermi_dirac',
+                      ElectronicTemperature: int = 300,
+                      WindowSize: float = 0.1,
+                      AddedMOs: int = 0,
+                      MixingMethod: str = 'broyden_mixing',
+                      MixingAlpha: float = 0.2,
+                      MaxSCFcycles: int = 30,
+                      MaxOuterSCFycles: int = 10,
+                      EPSDefault: float = 1e-8,
+                      PWCutoff: int = 1200,
+                      NGrid: int = 5,
+                      RelativeCutOff: int = 60,
+                      Functional: str = 'PBE',
+                      Parametrization: str = 'ORIG',
+                      DispersionCorrection: str = 'DFTD3',
+                      CheckAtomicCharges: bool = True,
+                      BasisSet: str = 'DZVP',
+                      SCFGuess: str = 'atomic',
+                      SCFConvergence: float = 1e-8,
+                      CP2KDataDir: str = None,
+                      KeepSymmetry: bool = False,
+                      KeepSpaceGroup: bool = False,
+                      KeepAngles: bool = False,
+                      MaxIterations: int = 100,
+                      Restart: bool = False,
+                      MaxDR: float = 1e-3,
+                      MaxForce: float = 1e-3,
+                      RMSDR: float = 1e-3,
+                      RMSForce: float = 1e-3,
+                      UseScalapack: bool = False,
+                      CellParameters: str = None,
+                      CellMatrix: str = None,
+                      AtomicTypes: str = None,
+                      FracX: float = None,
+                      FracY: float = None,
+                      FracZ: float = None,
+                      CartX: float = None,
+                      CartY: float = None,
+                      CartZ: float = None,
+                      ProcsPerReplica: int = 4,
+                      dX: float = 0.001,
+                      CalculateRaman: bool = False,
+                      CalculateIR: bool = False,
+                      Ensemble: str = 'NPT_F',
+                      Temperature: int = 400,
+                      TimeStep: float = 0.5,
+                      MDSteps: int = 100,
+                      Pressure: int = 1,
+                      TimeCon: int = 1000,
+                      KPoints: bool = False,
+                      RecDist: float = 0.3) -> None:
     """
     Create the input file for CP2K
 
@@ -380,125 +434,168 @@ def create_input_file(FrameworkName: str,
         Name of the framework
     output_folder : str
         Path to the output folder
-    **kwargs : dict
-        Dictionary with the parameters to be used in the CP2K input file creation.
+    CalcType : str, optional
+        Type of calculation. Can be 'energy_force', 'cell_opt', 'geo_opt', 'md', or 'normal_modes'
+    Charge : int, optional
+        Charge of the system. Default is 0
+    Multiplicity : int, optional
+        Multiplicity of the system. Default is 1
+    UseOT : bool, optional
+        Use the OT method. Default is False
+    UseSmearing : bool, optional
+        Use smearing method. Default is False
+    SmearingMethod : str, optional
+        Smearing method to be used. Can be 'fermi_dirac' or 'energy_window'. Default is 'fermi_dirac'
+    ElectronicTemperature : int, optional
+        Electronic temperature in Kelvin. Default is 300
+    WindowSize : float, optional
+        Window size for smearing. Default is 0.1
+    AddedMOs : int, optional
+        Number of added MOs. Default is 0
+    MixingMethod : str, optional
+        Mixing method. Can be 'direct_p_mixing', 'broyden_mixing_new', or 'kerker_mixing'. Default is 'broyden_mixing'
+    MixingAlpha : float, optional
+        Mixing alpha parameter. Default is 0.2
+    MaxSCFcycles : int, optional
+        Maximum number of SCF cycles. Default is 30
+    MaxOuterSCFycles : int, optional
+        Maximum number of outer SCF cycles. Default is 10
+    EPSDefault : float, optional
+        Default convergence criterion for SCF. Default is 1e-8
+    PWCutoff : int, optional
+        Plane wave cutoff. Default is 1200
+    NGrid : int, optional
+        Grid density. Default is 5
+    RelativeCutOff : int, optional
+        Relative cutoff for potentials. Default is 60
+    Functional : str, optional
+        Exchange-correlation functional. Can be 'PBE', 'XTB', or 'PBE0'. Default is 'PBE'
+    Parametrization : str, optional
+        Functional parametrization. Can be 'ORIG', 'PBESOL', or 'REVPBE'. Default is 'ORIG'
+    DispersionCorrection : str, optional
+        Dispersion correction method. Can be None, 'DFTD2', 'DFTD3', or 'DFTD3(BJ)'. Default is 'DFTD3'
+    CheckAtomicCharges : bool, optional
+        Whether to check atomic charges. Default is True
+    BasisSet : str, optional
+        Basis set to use. Can be 'SZV', 'DZVP', 'TZVP', or 'TZV2P'. Default is 'DZVP'
+    SCFGuess : str, optional
+        SCF guess method. Can be 'atomic', 'restart', 'core', 'random', 'sparse', or 'mopac'. Default is 'atomic'
+    SCFConvergence : float, optional
+        SCF convergence criterion. Default is 1e-8
+    CP2KDataDir : str, optional
+        Directory for CP2K data. If None, will use environment variable 'CP2K_DATA_DIR'
+    KeepSymmetry : bool, optional
+        Whether to keep symmetry. Default is False
+    KeepSpaceGroup : bool, optional
+        Whether to keep space group information. Default is False
+    KeepAngles : bool, optional
+        Whether to keep angles. Default is False
+    MaxIterations : int, optional
+        Maximum number of iterations. Default is 100
+    Restart : bool, optional
+        Whether to restart from a previous calculation. Default is False
+    MaxDR : float, optional
+        Maximum change in coordinates. Default is 1e-3
+    MaxForce : float, optional
+        Maximum force on atoms. Default is 1e-3
+    RMSDR : float, optional
+        RMS deviation of coordinates. Default is 1e-3
+    RMSForce : float, optional
+        RMS force on atoms. Default is 1e-3
+    UseScalapack : bool, optional
+        Whether to use ScaLAPACK. Default is False
+    CellParameters : str, optional
+        Cell parameters. Default is None
+    CellMatrix : str, optional
+        Cell matrix. Default is None
+    AtomicTypes : str, optional
+        Atomic types. Default is None
+    FracX : float, optional
+        Fractional coordinate in X direction. Default is None
+    FracY : float, optional
+        Fractional coordinate in Y direction. Default is None
+    FracZ : float, optional
+        Fractional coordinate in Z direction. Default is None
+    CartX : float, optional
+        Cartesian coordinate in X direction. Default is None
+    CartY : float, optional
+        Cartesian coordinate in Y direction. Default is None
+    CartZ : float, optional
+        Cartesian coordinate in Z direction. Default is None
+    ProcsPerReplica : int, optional
+        Number of processors per replica. Default is 4
+    dX : float, optional
+        Increment for coordinate adjustments. Default is 0.001
+    CalculateRaman : bool, optional
+        Whether to calculate Raman spectra. Default is False
+    CalculateIR : bool, optional
+        Whether to calculate IR spectra. Default is False
+    Ensemble : str, optional
+        MD ensemble type. Can be 'NVE', 'NVT', NPT_I', and 'NPT_F'. Default is 'NPT_F'
+    Temperature : int, optional
+        Temperature for MD. Default is 400
+    TimeStep : float, optional
+        Time step for MD simulations. Default is 0.5
+    MDSteps : int, optional
+        Number of MD steps. Default is 100
+    Pressure : int, optional
+        Pressure for MD. Default is 1
+    TimeCon : int, optional
+        Time constant for MD. Default is 1000
+    KPoints : bool, optional
+        Whether to use k-points. Default is False
+    RecDist : float, optional
+        Reciprocal distance for k-points. Default is 0.3
     """
-
-    CalcDict = {
-        'FrameworkName': FrameworkName.split('.')[0],
-        'Charge': 0,
-        'Multiplicity': 1,
-        'CalcType': 'energy_force',  # Can be 'energy_force', 'cell_opt', 'geo_opt', 'md', or 'normal_modes'
-        'UseOT': False,
-        'UseSmearing': False,
-        'SmearingMethod': 'fermi_dirac',  # Can be 'fermi_dirac' or 'energy_window'
-        'ElectronicTemperature': 300,
-        'WindowSize': 0.1,
-        'AddedMOs': 0,
-        'MixingMethod': 'broyden_mixing',  # Can be 'direct_p_mixing', 'broyden_mixing_new', or 'kerker_mixing'
-        'MixingAlpha': 0.2,
-        'MaxSCFycles': 30,
-        'MaxOuterSCFycles': 10,
-        'EPSDefault': 1e-8,
-        'PWCutoff': 1200,
-        'NGrid': 5,
-        'RelativeCutOff': 60,
-        'Functional': 'PBE',  # Can be 'PBE', 'XTB', or 'PBE0'
-        'Parametrization': 'ORIG',  # Can be 'ORIG', 'PBESOL', or 'REVPBE'
-        'DispersionCorrection': 'DFTD3',  # Can be None, 'DFTD2', 'DFTD3', or 'DFTD3(BJ)'
-        'CheckAtomicCharges': True,
-        'BasisSet': 'DZVP',  # Can be 'DZVP', 'TZVP', or 'TZV2P'
-        'SCFGuess': 'atomic',  # Can be 'atomic', 'restart', 'core', 'random', 'sparse', or 'mopac'
-        'SCFConvergence': 1e-8,
-        'CP2KDataDir': os.environ.get("CP2K_DATA_DIR"),
-        'KeepSymmetry': False,
-        'KeepSpaceGroup': False,
-        'KeepAngles': False,
-        'MaxIterations': 100,
-        'Restart': False,
-        'MaxDR': 1e-3,
-        'MaxForce': 1e-3,
-        'RMSDR': 1e-3,
-        'RMSForce': 1e-3,
-        'UseScalapack': False,
-        'CellParameters': None,
-        'CellMatrix': None,
-        'AtomicTypes': None,
-        'FracX': None,
-        'FracY': None,
-        'FracZ': None,
-        'CartX': None,
-        'CartY': None,
-        'CartZ': None,
-        'ProcsPerReplica': 4,
-        'dX': 0.001,
-        'CalculateRaman': False,
-        'CalculateIR': False,
-        'Ensemble': 'NPT_F',
-        'Temperature': 400,
-        'TimeStep': 0.5,
-        'MDSteps': 100,
-        'Pressure': 1,
-        'TimeCon': 1000,
-        'KPoints': False,
-        'RecDist': 0.3
-    }
-
-    # TO-DO: Add conversion from frac to cart and vice versa
-
-    # Update the dictionary with the user input
-    CalcDict.update(kwargs)
-
-    calcPar = SimpleNamespace(**CalcDict)
 
     Coord_Dict = {
         'scaled': False,
-        '*': ['{:3} {:11.6f} {:11.6f} {:11.6f}'.format(calcPar.AtomicTypes[i],
-                                                       calcPar.CartX[i],
-                                                       calcPar.CartY[i],
-                                                       calcPar.CartZ[i]) for i in range(len(calcPar.AtomicTypes))]
+        '*': ['{:3} {:11.6f} {:11.6f} {:11.6f}'.format(AtomicTypes[i],
+                                                       CartX[i],
+                                                       CartY[i],
+                                                       CartZ[i]) for i in range(len(AtomicTypes))]
                     }
 
     Kind_List = []
 
-    for specie in set(calcPar.AtomicTypes):
+    for specie in set(AtomicTypes):
         Kind_List.append(
             {
                 "_": specie,
                 'element': specie,
                 'potential': PSEUDO_POTENTIALS[specie],
-                'basis_set': BASIS_SET[calcPar.BasisSet][specie]
+                'basis_set': BASIS_SET[BasisSet][specie]
             }
         )
 
-    if calcPar.CellParameters is not None:
+    if CellParameters is not None:
         Cell_Dict = {
-            'abc': [calcPar.CellParameters[0], calcPar.CellParameters[1], calcPar.CellParameters[2]],
-            'alpha_beta_gamma': [calcPar.CellParameters[3], calcPar.CellParameters[4], calcPar.CellParameters[5]],
+            'abc': [CellParameters[0], CellParameters[1], CellParameters[2]],
+            'alpha_beta_gamma': [CellParameters[3], CellParameters[4], CellParameters[5]],
             'periodic': 'XYZ'
             }
-    elif calcPar.CellMatrix is not None:
+    elif CellMatrix is not None:
         Cell_Dict = {
-            'a': [calcPar.CellMatrix[0][0], calcPar.CellMatrix[0][1], calcPar.CellMatrix[0][2]],
-            'b': [calcPar.CellMatrix[1][0], calcPar.CellMatrix[1][1], calcPar.CellMatrix[1][2]],
-            'c': [calcPar.CellMatrix[2][0], calcPar.CellMatrix[2][1], calcPar.CellMatrix[2][2]],
+            'a': [CellMatrix[0][0], CellMatrix[0][1], CellMatrix[0][2]],
+            'b': [CellMatrix[1][0], CellMatrix[1][1], CellMatrix[1][2]],
+            'c': [CellMatrix[2][0], CellMatrix[2][1], CellMatrix[2][2]],
             'periodic': 'XYZ'
             }
     else:
         raise ValueError('Either the cell parameters or the cell matrix must be provided')
 
     Global_Dict = {
-        "project_name": calcPar.FrameworkName,
-        "run_type": calcPar.CalcType.lower(),
+        "project_name": FrameworkName,
+        "run_type": CalcType.lower(),
     }
 
-    if calcPar.UseScalapack:
+    if UseScalapack:
         Global_Dict["preferred_diag_library"] = "scalapack"
 
     Vibrational_Analysis_Dict = {
         'print': {'program_run_info': {'_': 'ON'}},
-        'nproc_rep': calcPar.ProcsPerReplica,
-        'dx': calcPar.dX,
+        'nproc_rep': ProcsPerReplica,
+        'dx': dX,
         'fully_periodic': True,
         'intensities': True
         }
@@ -506,7 +603,7 @@ def create_input_file(FrameworkName: str,
     Force_Eval_Dict = {
                 "+dft": {
                     "+qs": {
-                        'eps_default': calcPar.EPSDefault,
+                        'eps_default': EPSDefault,
                         },
                     "+print": {
                         "+hirshfeld": {"_": "OFF"},
@@ -514,16 +611,16 @@ def create_input_file(FrameworkName: str,
                         "+mulliken": {"_": "OFF"},
                     },
                     "+scf": {
-                        "scf_guess": calcPar.SCFGuess,
-                        "max_scf": calcPar.MaxSCFycles,
-                        "eps_scf": calcPar.SCFConvergence,
-                        "+mixing": {"method": calcPar.MixingMethod,
-                                    "alpha": calcPar.MixingAlpha},
-                        "+outer_scf": {"max_scf": calcPar.MaxOuterSCFycles,
-                                       "eps_scf": calcPar.SCFConvergence}
+                        "scf_guess": SCFGuess,
+                        "max_scf": MaxSCFcycles,
+                        "eps_scf": SCFConvergence,
+                        "+mixing": {"method": MixingMethod,
+                                    "alpha": MixingAlpha},
+                        "+outer_scf": {"max_scf": MaxOuterSCFycles,
+                                       "eps_scf": SCFConvergence}
                     },
-                    "charge": calcPar.Charge,
-                    "multiplicity": calcPar.Multiplicity
+                    "charge": Charge,
+                    "multiplicity": Multiplicity
                 },
                 "+subsys": {
                     "+cell": Cell_Dict,
@@ -533,12 +630,12 @@ def create_input_file(FrameworkName: str,
                 "stress_tensor": "analytical"
             }
 
-    if calcPar.KPoints:
-        if calcPar.KPoints is True:
-            calcPar.KPoints = get_kgrid(calcPar.CellMatrix, dist=calcPar.RecDist)
+    if KPoints:
+        if KPoints is True:
+            KPoints = get_kgrid(CellMatrix, dist=RecDist)
 
         Force_Eval_Dict["+dft"]['+kpoints'] = {
-            "scheme": ('MONKHORST-PACK', str(calcPar.KPoints[0]), str(calcPar.KPoints[1]), str(calcPar.KPoints[2])),
+            "scheme": ('MONKHORST-PACK', str(KPoints[0]), str(KPoints[1]), str(KPoints[2])),
             "symmetry": True,
             "full_grid": True,
             "verbose": True,
@@ -546,44 +643,44 @@ def create_input_file(FrameworkName: str,
             "eps_geo": 1e-3,
             }
 
-        if calcPar.KPoints == 'auto':
-            calcPar.KPoints = get_kgrid(calcPar.CellMatrix, dist=calcPar.RecDist)
+        if KPoints == 'auto':
+            KPoints = get_kgrid(CellMatrix, dist=RecDist)
 
-    if calcPar.CalcType.lower() == 'energy_force':
+    if CalcType.lower() == 'energy_force':
         Force_Eval_Dict['+print'] = {
             "+forces": {"filename": "forces", "_": "ON"},
             "+stress_tensor": {"_": "ON"}
             }
 
-    if calcPar.Functional == 'XTB':
+    if Functional == 'XTB':
         Force_Eval_Dict['+dft']['+qs'] = {
                         'method': 'XTB',
                         '+XTB': {
-                            'check_atomic_charges': calcPar.CheckAtomicCharges,
+                            'check_atomic_charges': CheckAtomicCharges,
                             'do_ewald': True,
                             '+parameter': {'dispersion_parameter_file': 'dftd3.dat'},
                         },
                     }
 
-    if calcPar.Functional == 'PBE':
+    if Functional == 'PBE':
         Force_Eval_Dict["+dft"]['+xc'] = {
                         "+xc_functional": {
-                            "+pbe": {"parametrization": calcPar.Parametrization}
+                            "+pbe": {"parametrization": Parametrization}
                             },
                         "+vdw_potential": {
                             "potential_type": "pair_potential",
                             "+pair_potential": {
-                                "type": calcPar.DispersionCorrection,
-                                "reference_functional": calcPar.Functional,
+                                "type": DispersionCorrection,
+                                "reference_functional": Functional,
                                 "r_cutoff": 16,
                                 "parameter_file_name": "dftd3.dat"
                                 }
                             }
                         }
         Force_Eval_Dict["+dft"]['+mgrid'] = {
-            'cutoff': calcPar.PWCutoff,
-            'ngrids': calcPar.NGrid,
-            'rel_cutoff': calcPar.RelativeCutOff
+            'cutoff': PWCutoff,
+            'ngrids': NGrid,
+            'rel_cutoff': RelativeCutOff
             }
 
         Force_Eval_Dict["+dft"]["basis_set_file_name"] = [
@@ -595,25 +692,25 @@ def create_input_file(FrameworkName: str,
 
         Force_Eval_Dict["+subsys"]["+kind"] = Kind_List
 
-    if calcPar.Functional == 'PBE0':
+    if Functional == 'PBE0':
         Force_Eval_Dict["+dft"]['+xc'] = {
                         "+xc_functional": {
-                            "_": calcPar.Functional
+                            "_": Functional
                         },
                         "+vdw_potential": {
                             "potential_type": "pair_potential",
                             "+pair_potential": {
-                                "type": calcPar.DispersionCorrection,
-                                "reference_functional": calcPar.Functional,
+                                "type": DispersionCorrection,
+                                "reference_functional": Functional,
                                 "r_cutoff": 16,
                                 "parameter_file_name": "dftd3.dat"
                                 }
                             }
                         }
         Force_Eval_Dict["+dft"]['+mgrid'] = {
-            'cutoff': calcPar.PWCutoff,
-            'ngrids': calcPar.NGrid,
-            'rel_cutoff': calcPar.RelativeCutOff
+            'cutoff': PWCutoff,
+            'ngrids': NGrid,
+            'rel_cutoff': RelativeCutOff
             }
 
         Force_Eval_Dict["+dft"]["basis_set_file_name"] = [
@@ -625,26 +722,26 @@ def create_input_file(FrameworkName: str,
 
         Force_Eval_Dict["+subsys"]["+kind"] = Kind_List
 
-    if calcPar.UseOT:
+    if UseOT:
         Force_Eval_Dict["+dft"]['+scf']["+ot"] = {"minimizer": "DIIS",
                                                   "n_diis": 7,
                                                   "preconditioner": "FULL_SINGLE_INVERSE"}
 
-    if calcPar.UseSmearing:
-        if calcPar.SmearingMethod == 'fermi_dirac':
+    if UseSmearing:
+        if SmearingMethod == 'fermi_dirac':
             Force_Eval_Dict["+dft"]['+scf']['+smear'] = {
                 "method": 'FERMI_DIRAC',
-                "electronic_temperature": calcPar.ElectronicTemperature
+                "electronic_temperature": ElectronicTemperature
             }
-        elif calcPar.SmearingMethod == 'energy_window':
+        elif SmearingMethod == 'energy_window':
             Force_Eval_Dict["+dft"]['+scf']['+smear'] = {
                 "method": 'energy_window',
-                "width": calcPar.WindowSize
+                "width": WindowSize
             }
-        if calcPar.AddedMOs == 0:
-            calcPar.AddedMOs = 50
+        if AddedMOs == 0:
+            AddedMOs = 50
 
-        Force_Eval_Dict["+dft"]['+scf']['added_mos'] = calcPar.AddedMOs
+        Force_Eval_Dict["+dft"]['+scf']['added_mos'] = AddedMOs
 
     motion_dict = {
         "+print": [
@@ -660,41 +757,39 @@ def create_input_file(FrameworkName: str,
         ]
     }
 
-    if calcPar.CalcType.lower() == 'cell_opt':
+    if CalcType.lower() == 'cell_opt':
         motion_dict['+cell_opt'] = {
             "+lbfgs": {"trust_radius": 0.25},
             "optimizer": "lbfgs",
-            "max_iter": calcPar.MaxIterations,
-            "max_dr": calcPar.MaxDR,
-            "max_force": calcPar.MaxForce,
-            "rms_dr": calcPar.RMSDR,
-            "rms_force": calcPar.RMSForce
+            "max_iter": MaxIterations,
+            "max_dr": MaxDR,
+            "max_force": MaxForce,
+            "rms_dr": RMSDR,
+            "rms_force": RMSForce,
+            "keep_symmetry": KeepAngles,
+            "keep_space_group": KeepSpaceGroup,
+            "keep_angles": KeepAngles
         }
 
-        if calcPar.KeepSymmetry:
-            motion_dict['+cell_opt']['keep_symmetry'] = True
-            motion_dict['+cell_opt']['keep_space_group'] = True
-            motion_dict['+cell_opt']['keep_angles'] = True
-
-    if calcPar.CalcType.lower() == 'geo_opt':
+    if CalcType.lower() == 'geo_opt':
         motion_dict['+geo_opt'] = {
             "+bfgs": {"trust_radius": 0.25},
-            "max_iter": calcPar.MaxIterations,
-            "max_dr": calcPar.MaxDR,
-            "max_force": calcPar.MaxForce,
-            "rms_dr": calcPar.RMSDR,
-            "rms_force": calcPar.RMSForce
+            "max_iter": MaxIterations,
+            "max_dr": MaxDR,
+            "max_force": MaxForce,
+            "rms_dr": RMSDR,
+            "rms_force": RMSForce
         }
 
-    if calcPar.CalcType.lower() == 'md':
+    if CalcType.lower() == 'md':
         motion_dict['+md'] = {
-            "ensemble": calcPar.Ensemble,
-            "temperature": calcPar.Temperature,
-            "timestep": calcPar.TimeStep,
-            "steps": calcPar.MDSteps,
+            "ensemble": Ensemble,
+            "temperature": Temperature,
+            "timestep": TimeStep,
+            "steps": MDSteps,
             "+barostat": {
-                "pressure": calcPar.Pressure,
-                "timecon": calcPar.TimeCon
+                "pressure": Pressure,
+                "timecon": TimeCon
             },
             "+thermostat": {
                 "type": 'CSVR',
@@ -702,7 +797,7 @@ def create_input_file(FrameworkName: str,
             }
         }
 
-    if calcPar.CalculateRaman:
+    if CalculateRaman:
         Force_Eval_Dict["+properties"] = {
             'linres': {'polar': {'do_raman': True},
                        'max_iter': 200,
@@ -711,7 +806,7 @@ def create_input_file(FrameworkName: str,
                        },
             }
 
-    if calcPar.CalculateIR:
+    if CalculateIR:
         Force_Eval_Dict['+dft']['+print']['+moments'] = {"periodic": True}
 
     input_dict = {
@@ -719,15 +814,15 @@ def create_input_file(FrameworkName: str,
         "+force_eval": [Force_Eval_Dict]
     }
 
-    if calcPar.CalcType.lower() in ['cell_opt', 'geo_opt', 'md']:
+    if CalcType.lower() in ['cell_opt', 'geo_opt', 'md']:
         input_dict['+motion'] = motion_dict
 
-    if calcPar.CalcType.lower() == 'normal_modes':
+    if CalcType.lower() == 'normal_modes':
         input_dict['+vibrational_analysis'] = Vibrational_Analysis_Dict
 
-    if calcPar.Restart:
+    if Restart:
         input_dict['+ext_restart'] = {
-            "restart_file_name": f"{calcPar.FrameworkName}-1.restart"
+            "restart_file_name": f"{FrameworkName}-1.restart"
         }
 
     generator = CP2KInputGenerator()
