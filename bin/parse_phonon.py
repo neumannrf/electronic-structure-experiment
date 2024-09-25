@@ -271,6 +271,7 @@ if arg.SaveVecs:
     shiftVecs = np.zeros((len(frequencies), nAtoms['primitive'], 3))
     for i, mode in enumerate(eigenVectors.real.T):
         for j, atom in enumerate(mode.reshape(-1, 3)):
+            # Normalize the displacement vectors by the square root of the atomic mass
             shiftVecs[i, j] = atom / np.sqrt(atomMasses['primitive'][j])
 
     os.makedirs(os.path.join(arg.output_folder, 'VIBRATION_FILES'), exist_ok=True)
@@ -279,17 +280,17 @@ if arg.SaveVecs:
     for i, freq in enumerate(frequencies):
         save_axsf(os.path.join(arg.output_folder, 'VIBRATION_FILES'),
                   f'{arg.FrameworkName}_{i}_{ir_labels[i]}_{freq}',
-                  cellMatrix['primitive'],
-                  atomTypes['primitive'],
-                  cartPos['primitive'],
+                  [cellMatrix['primitive']],
+                  [atomTypes['primitive']],
+                  [cartPos['primitive']],
                   [shiftVecs[i]])
 
     # Save all modes in a single file
     save_axsf(arg.output_folder,
               f'{arg.FrameworkName}_all',
-              cellMatrix['primitive'],
-              atomTypes['primitive'],
-              cartPos['primitive'],
+              [cellMatrix['primitive'] for _ in range(len(shiftVecs))],
+              [atomTypes['primitive'] for _ in range(len(shiftVecs))],
+              [cartPos['primitive'] for _ in range(len(shiftVecs))],
               shiftVecs)
 
 # Calculating dP/dR: N atoms, 3 directions (x, y, z), 2 polarizations (+, -), 3x3 tensor

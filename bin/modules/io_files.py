@@ -559,18 +559,13 @@ def save_axsf(output_folder,
     for i in range(len(shiftVecs)):
         axsf_txt += f'PRIMVEC {i + 1}\n'
         for j in range(3):
-            axsf_txt += f' {cellMatrix[i][j][0]: 12.7f}   {cellMatrix[i][j][1]: 12.7f}   {cellMatrix[i][j][2]: 12.7f}\n'
+            axsf_txt += ' {:12.7f}   {:12.7f}   {:12.7f}\n'.format(*cellMatrix[i][j])
         axsf_txt += f'PRIMCOORD {i + 1}\n'
         axsf_txt += f'{len(atomTypes[i])} 1\n'
         for j in range(len(atomTypes[i])):
-            print(shiftVecs[i][j][0])
             axsf_txt += '{:3} {:12.7f} {:12.7f} {:12.7f} {:12.7f} {:12.7f} {:12.7f}\n'.format(atomTypes[i][j],
-                                                                                              cartPos[i][j][0],
-                                                                                              cartPos[i][j][1],
-                                                                                              cartPos[i][j][2],
-                                                                                              shiftVecs[i][j][0],
-                                                                                              shiftVecs[i][j][1],
-                                                                                              shiftVecs[i][j][2])
+                                                                                              *cartPos[i][j],
+                                                                                              *shiftVecs[i][j])
 
     with open(os.path.join(output_folder, f'{FileName}.axsf'), 'w') as f:
         f.write(axsf_txt)
