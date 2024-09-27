@@ -17,7 +17,7 @@ from modules.calculate_properties import (calculate_UnitCells,
                                           diff_cross_section,
                                           lorentzian)
 from modules.constants import factor2cm
-from modules.io_files import save_axsf
+from modules.io_files import save_axsf, saveVibrationalChemicalJSON
 from phonopy import Phonopy
 from phonopy.structure.atoms import PhonopyAtoms
 from phonopy.units import CP2KToTHz
@@ -433,3 +433,15 @@ np.savetxt(os.path.join(arg.output_folder, f'{arg.FrameworkName}_RAMAN_Curve.csv
            header=','.join(header_list),
            delimiter=',',
            fmt='%15.7f')
+
+# Save the vibrations as cjson file
+saveVibrationalChemicalJSON(OutputFolder=arg.output_folder,
+                            Frameworkname=arg.FrameworkName,
+                            CellParameters=cellParameters['primitive'],
+                            atomTypes=atomTypes['primitive'],
+                            cartPos=cartPos['primitive'],
+                            modes=ir_labels,
+                            eigenVectors=np.array([i.flatten() for i in shiftVecs]).tolist(),
+                            freqList=frequencies,
+                            IR_intensity=np.zeros(len(frequencies)),
+                            RAMAN_intensity=I_raman.T[0])

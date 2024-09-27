@@ -13,8 +13,7 @@ from ase.cell import Cell
 
 from modules.atom_data import ATOMIC_NUMBER
 from modules.calculate_properties import get_CellParameters
-from modules.parse_cp2k import (get_MoldenData,
-                                get_vibrational_data)
+from modules.parse_cp2k import get_MoldenData
 
 
 def readChemicalJSON(FrameworkName: str, OutputFolder: str = '.', **kwargs):
@@ -571,26 +570,34 @@ def save_axsf(output_folder,
         f.write(axsf_txt)
 
 
-def saveVibrationalChemicalJSON(OutputFolder, Frameworkname):
-
-    frequency, IR_intensity, RAMAN_intensity = get_vibrational_data(
-        os.path.join(OutputFolder, 'simulation_Vibrations.out')
-        )
-
-    atom_labels, atom_pos, _, modes, eigenVectors, _, _ = get_MoldenData(OutputFolder,
-                                                                         Frameworkname)
+def saveVibrationalChemicalJSON(OutputFolder: str,
+                                Frameworkname: str,
+                                CellParameters: list[float],
+                                atomTypes: list[str],
+                                cartPos: list[list[float]],
+                                eigenVectors: list[list[float]],
+                                modes: list[str],
+                                freqList: list[float],
+                                IR_intensity: list[float],
+                                RAMAN_intensity: list[float]):
 
     # Convert atom_labels to atom_number
-    atom_number = [gemmi.Element(atom).atomic_number for atom in atom_labels]
+    atom_number = [gemmi.Element(atom).atomic_number for atom in atomTypes]
 
     # Flatten the atom_pos list
-    atom_pos = [i for sublist in atom_pos for i in sublist]
+    cartPos = [i for sublist in cartPos for i in sublist]
 
-    # Get the cell parameters from cif file
-    CellParameters = get_CellParameters(Frameworkname + '.cif')
     CellMatrix = Cell.fromcellpar(CellParameters).flatten().tolist()
 
-    formula = ' '.join([f'{atom}{atom_labels.count(atom)}' for atom in set(atom_labels)])
+    formula = ' '.join([f'{atom}{atomTypes.count(atom)}' for atom in set(atomTypes)])
+
+    # Convert variables to lists
+    if not isinstance(freqList, list):
+        freqList = freqList.tolist()
+    if not isinstance(IR_intensity, list):
+        IR_intensity = IR_intensity.tolist()
+    if not isinstance(RAMAN_intensity, list):
+        RAMAN_intensity = RAMAN_intensity.tolist()
 
     ChemJSON = {
         "chemicalJson": 1,
@@ -607,16 +614,16 @@ def saveVibrationalChemicalJSON(OutputFolder, Frameworkname):
         },
         "atoms": {
             "elements": {
-                "type": atom_labels,
+                "type": atomTypes,
                 "number": atom_number
                 },
             "coords": {
-                "3d": atom_pos
+                "3d": cartPos
                 }
         },
         'vibrations': {
             'eigenVectors': eigenVectors,
-            'frequencies': list(frequency),
+            'frequencies': list(freqList),
             'intensities': list(IR_intensity),
             'ramanIntensities': list(RAMAN_intensity),
             'modes': modes
