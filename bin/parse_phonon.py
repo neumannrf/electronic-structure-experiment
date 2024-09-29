@@ -93,6 +93,12 @@ parser.add_argument('--HalfWidth',
                     action='store',
                     metavar='HALF_WIDTH',
                     help='Half width of the Lorentzian function used to broaden the vibrational frequencies.')
+parser.add_argument('--Resolution',
+                    type=float,
+                    default=0.1,
+                    action='store',
+                    metavar='RESOLUTION',
+                    help='Resolution of the Raman/IR spectrum in cm-1.')
 parser.add_argument('--SaveVecs',
                     action='store_true',
                     required=False,
@@ -386,10 +392,10 @@ np.savetxt(os.path.join(arg.output_folder, f'{arg.FrameworkName}_RamanTable.csv'
            np.array(raman_data, dtype=object),
            header=','.join(header_list),
            delimiter=',',
-           fmt='%5d,%4s,%10.2f,%15.7f,%15.7f,%15.7f,%25.3f,%25.3f,%25.3f')
+           fmt='%5d,%4s,%10.2f,%15.5e,%15.5e,%15.5e,%15.5e,%15.5e,%15.5e')
 
 # Calculate the Raman spectrum
-X = np.linspace(min(frequencies), max(frequencies)*1.2, 10000)
+X = np.arange(round(min(frequencies)) - 100, max(frequencies) + 100, arg.Resolution)
 I_tot = np.zeros_like(X)
 I_perp = np.zeros_like(X)
 I_par = np.zeros_like(X)
