@@ -15,6 +15,7 @@ from modules.calculate_properties import (calculate_UnitCells,
                                           get_forces,
                                           get_pol_tensor,
                                           get_spg_class,
+                                          calc_placzek_invariants,
                                           diff_cross_section,
                                           lorentzian)
 from modules.constants import factor2cm
@@ -24,7 +25,7 @@ from phonopy.structure.atoms import PhonopyAtoms
 from phonopy.units import CP2KToTHz
 
 # Required parameters
-parser = argparse.ArgumentParser(description='Create symmetric shifts for the small displacement method.')
+parser = argparse.ArgumentParser(description='Parse the phonon calculations from CP2K and calculate the Raman.')
 parser.add_argument('output_folder',
                     type=str,
                     action='store',
@@ -306,6 +307,14 @@ if arg.SaveVecs:
               [cartPos['primitive'] for _ in range(len(shiftVecs))],
               shiftVecs)
 
+# Get the phonon eigendisplacements vectors as (3 * N_atoms) x N_modes array
+phonon_eigendisplacements = np.zeros((nAtoms['primitive'], len(frequencies), 3))
+
+# Fill the phonon eigendisplacements array
+for i, mode in enumerate(eigenVectors.real.T):
+    for j, atom in enumerate(mode.reshape(-1, 3)):
+        phonon_eigendisplacements[j, i] = atom
+
 # Calculating dP/dR: N atoms, 3 directions (x, y, z), 2 polarizations (+, -), 3x3 tensor
 d_polarizability = np.zeros((nAtoms['primitive'], 3, 3, 3))
 
@@ -320,45 +329,13 @@ for i in range(nAtoms['primitive']):
         # f'(x) = (f(x + h) - f(x - h)) / (2 * h)
         d_polarizability[i][d] = (polTensor_plus - polTensor_minus) / (2 * arg.dR)
 
-# Get the phonon eigendisplacements vectors as (3 * N_atoms) x N_modes array
-phonon_eigendisplacements = np.zeros((nAtoms['primitive'], len(frequencies), 3))
-
-# Fill the phonon eigendisplacements array
-for i, mode in enumerate(eigenVectors.real.T):
-    for j, atom in enumerate(mode.reshape(-1, 3)):
-        phonon_eigendisplacements[j, i] = atom
-
 # Calculating Raman tensor from polarizability tensor derivatives (dP/dR), phonon eigendisplacements, and atomic masses
 alpha = np.einsum('ad...,akd,a->k...',
                   d_polarizability,
                   phonon_eigendisplacements,
                   invAtomicMass['primitive']) * np.sqrt(cellVolume['primitive'])
 
-# Calculating Raman Tensor Placzek Invariants following:
-# The Raman Effect: A Unified Treatment of the Theory of Raman Scattering by Molecules
-# by Derek A. Long, 2002
-# This does not require the tensor to be symmetric.
-
-# Calculate the mean polarizability squared
-a_sq = np.square(np.trace(alpha, 0, 2) / 3).reshape((-1, 1))
-
-# Create an empty vector for the anisotropy
-gamma_sq = np.zeros((len(frequencies), 1))
-
-# Create an empty vector for asymmetric anisotropy
-delta_sq = np.zeros_like(gamma_sq)
-
-for k in range(len(frequencies)):
-    delta_sq[k] = 3/4 * (np.square(alpha[k][0][1] - alpha[k][1][0])
-                         + np.square(alpha[k][1][2] - alpha[k][2][1])
-                         + np.square(alpha[k][2][0] - alpha[k][0][2]))
-
-    gamma_sq[k] = 1/2 * (np.square(alpha[k][0][0] - alpha[k][1][1])
-                         + np.square(alpha[k][1][1] - alpha[k][2][2])
-                         + np.square(alpha[k][2][2] - alpha[k][0][0])) \
-        + 3/4 * (np.square(alpha[k][0][1] + alpha[k][1][0])
-                 + np.square(alpha[k][0][2] + alpha[k][2][0])
-                 + np.square(alpha[k][1][2] + alpha[k][2][1]))
+a_sq, gamma_sq, delta_sq = calc_placzek_invariants(frequencies, alpha)
 
 # Create the Raman Intensities vector
 I_raman = np.zeros((len(frequencies), 3))

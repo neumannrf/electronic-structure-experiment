@@ -947,6 +947,54 @@ def get_pol_tensor(file_name, output_folder, symmetrize=False):
     return pol_au_order, po_angs_order
 
 
+def calc_placzek_invariants(frequencies, alpha):
+    """
+    Calculate the Raman Tensor Placzek Invariants of the polarizability tensor.
+    This method follows the procedure described in:
+    The Raman Effect: A Unified Treatment of the Theory of Raman Scattering by Molecules
+    by Derek A. Long, 2002, Section A14.7.5, page 490.
+
+    This method does not require the tensor to be symmetric.
+
+    Parameters
+    ----------
+    alpha : np.ndarray
+        Polarizability tensor in atomic units [a.u.^3].
+
+    Returns
+    -------
+    a_sq : np.ndarray
+        Mean polarizability squared.
+    gamma_sq : np.ndarray
+        Anisotropy squared.
+    delta_sq : np.ndarray
+        Asymmetric anisotropy squared
+    """
+
+    # Calculate the mean polarizability squared
+    a_sq = np.square(np.trace(alpha, 0, 2) / 3).reshape((-1, 1))
+
+    # Create an empty vector for the anisotropy
+    gamma_sq = np.zeros((len(frequencies), 1))
+
+    # Create an empty vector for asymmetric anisotropy
+    delta_sq = np.zeros_like(gamma_sq)
+
+    for k in range(len(frequencies)):
+        delta_sq[k] = 3/4 * (np.square(alpha[k][0][1] - alpha[k][1][0])
+                             + np.square(alpha[k][1][2] - alpha[k][2][1])
+                             + np.square(alpha[k][2][0] - alpha[k][0][2]))
+
+        gamma_sq[k] = 1/2 * (np.square(alpha[k][0][0] - alpha[k][1][1])
+                             + np.square(alpha[k][1][1] - alpha[k][2][2])
+                             + np.square(alpha[k][2][2] - alpha[k][0][0])) \
+            + 3/4 * (np.square(alpha[k][0][1] + alpha[k][1][0])
+                     + np.square(alpha[k][0][2] + alpha[k][2][0])
+                     + np.square(alpha[k][1][2] + alpha[k][2][1]))
+
+    return a_sq, gamma_sq, delta_sq
+
+
 def diff_cross_section(w, laser_wl=532, T=298):
     """
     Calculate the differential cross section of a Raman scattering process for
