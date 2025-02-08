@@ -17,10 +17,10 @@ from modules.calculate_properties import (calculate_UnitCells,
                                           get_spg_class,
                                           calc_placzek_invariants,
                                           diff_cross_section,
-                                          lorentzian,
-                                          calculate_raman_intensity)
+                                          calculate_raman_intensity,
+                                          save_raman_data)
 from modules.constants import factor2cm
-from modules.io_files import save_axsf, saveVibrationalChemicalJSON
+from modules.io_files import save_shift_vecs, saveVibrationalChemicalJSON
 from phonopy import Phonopy
 from phonopy.structure.atoms import PhonopyAtoms
 from phonopy.units import CP2KToTHz
@@ -127,7 +127,7 @@ aseCell = Cell.fromcellpar(CellParameters)
 
 if arg.UnitCells is None:
     arg.UnitCells = calculate_UnitCells(cif_filename, 6).replace(' ', ',')
-    print('Supercell size not specified. Using a default value of 6A for the supercell size.')
+    warnings.warn('Supercell size not specified. Using a default value of 6A for the supercell size.')
     print('Calculated supercell size:', arg.UnitCells)
 
 arg.UnitCells = np.array([int(i) for i in arg.UnitCells.split(',')])
@@ -282,31 +282,24 @@ if np.any(frequencies < -5e-3):
         if freq < -5e-3:
             print(f'Mode {i:3} {ir_labels[i]:4}: {freq:8.2f} cm-1')
 
+# Calculate the normal mode displacement vectors
+shiftVecs = np.zeros((len(frequencies), nAtoms['primitive'], 3))
+for i, mode in enumerate(eigenVectors.real.T):
+    for j, atom in enumerate(mode.reshape(-1, 3)):
+        # Normalize the displacement vectors by the square root of the atomic mass
+        shiftVecs[i, j] = atom / np.sqrt(atomMasses['primitive'][j])
+
+# Save the AXSF file with the normal modes
 if arg.SaveVecs:
-    shiftVecs = np.zeros((len(frequencies), nAtoms['primitive'], 3))
-    for i, mode in enumerate(eigenVectors.real.T):
-        for j, atom in enumerate(mode.reshape(-1, 3)):
-            # Normalize the displacement vectors by the square root of the atomic mass
-            shiftVecs[i, j] = atom / np.sqrt(atomMasses['primitive'][j])
-
-    os.makedirs(os.path.join(arg.output_folder, 'VIBRATION_FILES'), exist_ok=True)
-
-    # Save independend files for each mode
-    for i, freq in enumerate(frequencies):
-        save_axsf(os.path.join(arg.output_folder, 'VIBRATION_FILES'),
-                  f'{arg.FrameworkName}_{i}_{ir_labels[i]}_{freq}',
-                  [cellMatrix['primitive']],
-                  [atomTypes['primitive']],
-                  [cartPos['primitive']],
-                  [shiftVecs[i]])
-
-    # Save all modes in a single file
-    save_axsf(arg.output_folder,
-              f'{arg.FrameworkName}_all',
-              [cellMatrix['primitive'] for _ in range(len(shiftVecs))],
-              [atomTypes['primitive'] for _ in range(len(shiftVecs))],
-              [cartPos['primitive'] for _ in range(len(shiftVecs))],
-              shiftVecs)
+    save_shift_vecs(
+        arg.output_folder,
+        arg.FrameworkName,
+        frequencies,
+        shiftVecs,
+        cellMatrix,
+        atomTypes,
+        cartPos,
+        ir_labels)
 
 # Get the phonon eigendisplacements vectors as (3 * N_atoms) x N_modes array
 phonon_eigendisplacements = np.zeros((nAtoms['primitive'], len(frequencies), 3))
@@ -340,90 +333,29 @@ alpha = np.einsum('ad...,akd,a->k...',
 a_sq, gamma_sq, delta_sq = calc_placzek_invariants(frequencies, alpha)
 
 # Calculate the Raman intensity
-I_raman = calculate_raman_intensity(frequencies, a_sq, gamma_sq, delta_sq)
+I_raman = calculate_raman_intensity(frequencies,
+                                    a_sq,
+                                    gamma_sq,
+                                    delta_sq)
 
 # Calculate the Raman cross section factor
-cs = diff_cross_section(frequencies, arg.LaserWaveLength, arg.ExternalTemperature)
+diff_cs = diff_cross_section(frequencies,
+                             arg.LaserWaveLength,
+                             arg.ExternalTemperature)
 
 # Create the Raman cross section vector
 raman_cross_section = np.zeros((len(frequencies), 3))
 
 for k in range(len(frequencies)):
-    raman_cross_section[k] = cs[k] * I_raman[k]
+    raman_cross_section[k] = diff_cs[k] * I_raman[k]
 
-# Prepare the Raman data to save as a csv file
-raman_data = [[i, ir_labels[i], freq, *I_raman[i], *raman_cross_section[i]] for i, freq in enumerate(frequencies)]
-
-header_list = [
-    'Mode',
-    'Symmetry',
-    'Frequency (cm-1)',
-    'Total Raman Int (a.u)',
-    'Perpendicular Raman Int (a.u)',
-    'Parallel Raman Int (a.u)',
-    'Total Cross Section (Å^4.amu^-1)',
-    'Perpendicular Cross Section (Å^4.amu^-1)',
-    'Parallel Cross Section (Å^4.amu^-1)']
-
-# Save raman_data as a csv file
-np.savetxt(os.path.join(arg.output_folder, f'{arg.FrameworkName}_RamanTable.csv'),
-           np.array(raman_data, dtype=object),
-           header=','.join(header_list),
-           delimiter=',',
-           fmt='%5d,%4s,%10.2f,%15.5e,%15.5e,%15.5e,%15.5e,%15.5e,%15.5e')
-
-
-curve_limits = [int(i) for i in arg.CurveLimits.split(',')]
-
-# Calculate the Raman spectrum
-X = np.arange(round(min(frequencies)) - 100, max(frequencies) + 100, arg.Resolution)
-I_tot = np.zeros_like(X)
-I_perp = np.zeros_like(X)
-I_par = np.zeros_like(X)
-Cs_tot = np.zeros_like(X)
-Cs_perp = np.zeros_like(X)
-Cs_par = np.zeros_like(X)
-
-
-for i, freq in enumerate(frequencies):
-    # Skip the frequencies outside the curve limits
-    if freq < curve_limits[0] or freq > curve_limits[1]:
-        continue
-
-    I_tot += lorentzian(X, freq, arg.HalfWidth) * I_raman[i][0]
-    I_perp += lorentzian(X, freq, arg.HalfWidth) * I_raman[i][1]
-    I_par += lorentzian(X, freq, arg.HalfWidth) * I_raman[i][2]
-    Cs_tot += lorentzian(X, freq, arg.HalfWidth) * raman_cross_section[i][0]
-    Cs_perp += lorentzian(X, freq, arg.HalfWidth) * raman_cross_section[i][1]
-    Cs_par += lorentzian(X, freq, arg.HalfWidth) * raman_cross_section[i][2]
-
-# Normalize the Raman intensities
-norm_factor = np.max(I_tot)
-
-I_tot /= norm_factor
-I_perp /= norm_factor
-I_par /= norm_factor
-
-norm_factor = np.max(Cs_tot)
-
-Cs_tot /= norm_factor
-Cs_perp /= norm_factor
-Cs_par /= norm_factor
-
-header_list = ['Frequency (cm-1)',
-               'Total Raman Int (a.u)',
-               'Perpendicular Raman Int (a.u)',
-               'Parallel Raman Int (a.u)',
-               'Total Cross Section (a.u.)',
-               'Perpendicular Cross Section (a.u.)',
-               'Parallel Cross Section (a.u.)']
-
-# Save as a numpy csv file
-np.savetxt(os.path.join(arg.output_folder, f'{arg.FrameworkName}_RAMAN_Curve.csv'),
-           np.transpose([X, I_tot, I_perp, I_par, Cs_tot, Cs_perp, Cs_par]),
-           header=','.join(header_list),
-           delimiter=',',
-           fmt='%15.7f')
+save_raman_data(arg.output_folder,
+                arg.FrameworkName,
+                frequencies,
+                raman_cross_section,
+                arg.Resolution,
+                arg.CurveLimits,
+                arg.HalfWidth)
 
 # Save the vibrations as cjson file
 saveVibrationalChemicalJSON(OutputFolder=arg.output_folder,

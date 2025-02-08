@@ -570,6 +570,58 @@ def save_axsf(output_folder,
         f.write(axsf_txt)
 
 
+def save_shift_vecs(
+        output_folder,
+        FrameworkName,
+        frequencies,
+        shiftVecs,
+        cellMatrix,
+        atomTypes,
+        cartPos,
+        ir_labels) -> None:
+    """
+    Save the vibrational modes as AXSF files.
+
+    Parameters
+    ----------
+    output_folder : str
+        Path to the output folder
+    FrameworkName : str
+        Name of the framework
+    frequencies : np.ndarray
+        Frequencies of the vibrational modes.
+    shiftVecs : np.ndarray
+        Shift vectors of the vibrational modes.
+    cellMatrix : list
+        3 x 3 list of the cell matrix
+    atomTypes : list
+        N x 1 list of the atomic types
+    cartPos : list
+        N x 3 list of the atomic positions in cartesian coordinates
+    ir_labels : list
+        N x 1 list of the IR labels
+    """
+
+    os.makedirs(os.path.join(output_folder, 'VIBRATION_FILES'), exist_ok=True)
+
+    # Save independend files for each mode
+    for i, freq in enumerate(frequencies):
+        save_axsf(os.path.join(output_folder, 'VIBRATION_FILES'),
+                  f'{FrameworkName}_{i}_{ir_labels[i]}_{freq}',
+                  [cellMatrix['primitive']],
+                  [atomTypes['primitive']],
+                  [cartPos['primitive']],
+                  [shiftVecs[i]])
+
+    # Save all modes in a single file
+    save_axsf(output_folder,
+              f'{FrameworkName}_all',
+              [cellMatrix['primitive'] for _ in range(len(shiftVecs))],
+              [atomTypes['primitive'] for _ in range(len(shiftVecs))],
+              [cartPos['primitive'] for _ in range(len(shiftVecs))],
+              shiftVecs)
+
+
 def saveVibrationalChemicalJSON(OutputFolder: str,
                                 Frameworkname: str,
                                 CellParameters: list[float],

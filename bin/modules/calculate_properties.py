@@ -1014,11 +1014,11 @@ def calculate_raman_intensity(frequencies, a_sq, gamma_sq, delta_sq):
         Anisotropy squared.
     delta_sq : np.ndarray
         Asymmetric anisotropy squared.
-    
+
     Returns
     -------
     I_raman : np.ndarray
-        Raman intensity vector.
+        Raman intensity vector as a N_freq x 3 matrix.
     """
 
     I_raman = np.zeros((len(frequencies), 3))
@@ -1033,6 +1033,92 @@ def calculate_raman_intensity(frequencies, a_sq, gamma_sq, delta_sq):
         I_raman[k] = np.array([I_total, I_perpendicular, I_parallel]).flatten() / 45
 
     return I_raman
+
+
+def save_raman_data(output_folder,
+                    FrameworkName,
+                    frequencies,
+                    I_raman,
+                    ir_labels,
+                    raman_cross_section,
+                    CurveLimits,
+                    Resolution,
+                    HalfWidth) -> None:
+
+    # Prepare the Raman data to save as a csv file
+    raman_data = [[i, ir_labels[i], freq, *I_raman[i], *raman_cross_section[i]] for i, freq in enumerate(frequencies)]
+
+    header_list = [
+        'Mode',
+        'Symmetry',
+        'Frequency (cm-1)',
+        'Total Raman Int (a.u)',
+        'Perpendicular Raman Int (a.u)',
+        'Parallel Raman Int (a.u)',
+        'Total Cross Section (Å^4.amu^-1)',
+        'Perpendicular Cross Section (Å^4.amu^-1)',
+        'Parallel Cross Section (Å^4.amu^-1)']
+
+    # Save raman_data as a csv file
+    np.savetxt(
+        os.path.join(output_folder, f'{FrameworkName}_RamanTable.csv'),
+        np.array(raman_data, dtype=object),
+        header=','.join(header_list),
+        delimiter=',',
+        fmt='%5d,%4s,%10.2f,%15.5e,%15.5e,%15.5e,%15.5e,%15.5e,%15.5e')
+
+    curve_limits = [int(i) for i in CurveLimits.split(',')]
+
+    # Calculate the Raman spectrum
+    X = np.arange(round(min(frequencies)) - 100, max(frequencies) + 100, Resolution)
+    I_tot = np.zeros_like(X)
+    I_perp = np.zeros_like(X)
+    I_par = np.zeros_like(X)
+    Cs_tot = np.zeros_like(X)
+    Cs_perp = np.zeros_like(X)
+    Cs_par = np.zeros_like(X)
+
+    for i, freq in enumerate(frequencies):
+        # Skip the frequencies outside the curve limits
+        if freq < curve_limits[0] or freq > curve_limits[1]:
+            continue
+
+        I_tot += lorentzian(X, freq, HalfWidth) * I_raman[i][0]
+        I_perp += lorentzian(X, freq, HalfWidth) * I_raman[i][1]
+        I_par += lorentzian(X, freq, HalfWidth) * I_raman[i][2]
+        Cs_tot += lorentzian(X, freq, HalfWidth) * raman_cross_section[i][0]
+        Cs_perp += lorentzian(X, freq, HalfWidth) * raman_cross_section[i][1]
+        Cs_par += lorentzian(X, freq, HalfWidth) * raman_cross_section[i][2]
+
+    # Normalize the Raman intensities
+    norm_factor = np.max(I_tot)
+
+    I_tot /= norm_factor
+    I_perp /= norm_factor
+    I_par /= norm_factor
+
+    norm_factor = np.max(Cs_tot)
+
+    Cs_tot /= norm_factor
+    Cs_perp /= norm_factor
+    Cs_par /= norm_factor
+
+    header_list = [
+        'Frequency (cm-1)',
+        'Total Raman Int (a.u)',
+        'Perpendicular Raman Int (a.u)',
+        'Parallel Raman Int (a.u)',
+        'Total Cross Section (a.u.)',
+        'Perpendicular Cross Section (a.u.)',
+        'Parallel Cross Section (a.u.)']
+
+    # Save as a numpy csv file
+    np.savetxt(
+        os.path.join(output_folder, f'{FrameworkName}_RAMAN_Curve.csv'),
+        np.transpose([X, I_tot, I_perp, I_par, Cs_tot, Cs_perp, Cs_par]),
+        header=','.join(header_list),
+        delimiter=',',
+        fmt='%15.7f')
 
 
 def diff_cross_section(w, laser_wl=532, T=298):
