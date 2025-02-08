@@ -99,6 +99,12 @@ parser.add_argument('--Resolution',
                     action='store',
                     metavar='RESOLUTION',
                     help='Resolution of the Raman/IR spectrum in cm-1.')
+parser.add_argument('--CurveLimits',
+                    type=str,
+                    default='0,4000',
+                    action='store',
+                    metavar='CURVE_LIMITS',
+                    help='Limits for the Raman/IR spectrum plot separated by comma. Ex. 0,4000')
 parser.add_argument('--SaveVecs',
                     action='store_true',
                     required=False,
@@ -394,6 +400,9 @@ np.savetxt(os.path.join(arg.output_folder, f'{arg.FrameworkName}_RamanTable.csv'
            delimiter=',',
            fmt='%5d,%4s,%10.2f,%15.5e,%15.5e,%15.5e,%15.5e,%15.5e,%15.5e')
 
+
+curve_limits = [int(i) for i in arg.CurveLimits.split(',')]
+
 # Calculate the Raman spectrum
 X = np.arange(round(min(frequencies)) - 100, max(frequencies) + 100, arg.Resolution)
 I_tot = np.zeros_like(X)
@@ -405,6 +414,10 @@ Cs_par = np.zeros_like(X)
 
 
 for i, freq in enumerate(frequencies):
+    # Skip the frequencies outside the curve limits
+    if freq < curve_limits[0] or freq > curve_limits[1]:
+        continue
+
     I_tot += lorentzian(X, freq, arg.HalfWidth) * I_raman[i][0]
     I_perp += lorentzian(X, freq, arg.HalfWidth) * I_raman[i][1]
     I_par += lorentzian(X, freq, arg.HalfWidth) * I_raman[i][2]
