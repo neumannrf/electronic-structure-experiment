@@ -349,13 +349,16 @@ raman_cross_section = np.zeros((len(frequencies), 3))
 for k in range(len(frequencies)):
     raman_cross_section[k] = diff_cs[k] * I_raman[k]
 
-save_raman_data(arg.output_folder,
-                arg.FrameworkName,
-                frequencies,
-                raman_cross_section,
-                arg.Resolution,
-                arg.CurveLimits,
-                arg.HalfWidth)
+save_raman_data(
+    output_folder=arg.output_folder,
+    FrameworkName=arg.FrameworkName,
+    frequencies=frequencies,
+    I_raman=I_raman,
+    ir_labels=ir_labels,
+    raman_cross_section=raman_cross_section,
+    CurveLimits=arg.CurveLimits,
+    Resolution=arg.Resolution,
+    HalfWidth=arg.HalfWidth)
 
 # Save the vibrations as cjson file
 saveVibrationalChemicalJSON(OutputFolder=arg.output_folder,
