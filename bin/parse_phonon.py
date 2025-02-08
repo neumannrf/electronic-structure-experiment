@@ -6,6 +6,7 @@
 import argparse
 import os
 
+import warnings
 import numpy as np
 from ase.cell import Cell
 from modules.calculate_properties import (calculate_UnitCells,
@@ -274,7 +275,7 @@ frequencies = np.sqrt(np.abs(eigenValues.real)) * np.sign(eigenValues) * factor2
 
 # Check if there is any negative frequency
 if np.any(frequencies < -5e-3):
-    print('WARNING: Negative frequencies found!')
+    warnings.warn('WARNING: Negative frequencies found!')
     for i, freq in enumerate(frequencies):
         if freq < -5e-3:
             print(f'Mode {i:3} {ir_labels[i]:4}: {freq:8.2f} cm-1')

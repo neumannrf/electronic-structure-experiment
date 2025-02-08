@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache2.0
 
 import os
+import warnings
 
 import gemmi
 import numpy as np
@@ -936,10 +937,10 @@ def get_pol_tensor(file_name, output_folder, symmetrize=False):
         po_angs_order = 0.5 * (po_angs_order + po_angs_order.T)
 
     if np.linalg.norm(pol_au_order) == 0:
-        print(f'Warning: Found zero values on polarizability tensor of {output_folder}')
+        warnings.warn(f'Warning: Found zero values on polarizability tensor of {output_folder}')
 
     if np.any(np.isnan(pol_au_order)) or np.any(np.isinf(pol_au_order)):
-        print(f'Warning: Found NaN or Inf values on polarizability tensor of {output_folder}')
+        warnings.warn(f'Warning: Found NaN or Inf values on polarizability tensor of {output_folder}')
         pol_au_order = np.zeros((3, 3))
         po_angs_order = np.zeros((3, 3))
 
