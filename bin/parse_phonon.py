@@ -200,12 +200,12 @@ IndAtoms = {
     'primitive': [int(i) for i in
                   (PhononCalc.symmetry.get_independent_atoms() / (nAtoms['supercell'] / nAtoms['primitive']))],
     'supercell': PhononCalc.symmetry.get_independent_atoms()
-}
+    }
 
 invAtomicMass = {
     'primitive': np.sqrt(np.reciprocal([atomMasses['primitive'][i] for i in range(nAtoms['primitive'])])),
     'supercell': np.sqrt(np.reciprocal([atomMasses['supercell'][i] for i in range(nAtoms['supercell'])]))
-}
+    }
 
 # Get the space group
 spaceGroupString, spaceGrounNumber = PhononCalc.symmetry.get_international_table().split()
