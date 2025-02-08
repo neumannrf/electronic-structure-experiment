@@ -995,6 +995,46 @@ def calc_placzek_invariants(frequencies, alpha):
     return a_sq, gamma_sq, delta_sq
 
 
+def calculate_raman_intensity(frequencies, a_sq, gamma_sq, delta_sq):
+    """
+    Create the Raman Intensities vector.
+
+    I_total = I_parallel + I_perpendicular
+
+    I_parallel = 45 * a_sq + 4 * gamma_sq
+    I_perpendicular = 3 * gamma_sq + 5 * delta_sq
+
+    Parameters
+    ----------
+    frequencies : np.ndarray
+        Frequencies of the Raman scattering process.
+    a_sq : np.ndarray
+        Mean polarizability squared.
+    gamma_sq : np.ndarray
+        Anisotropy squared.
+    delta_sq : np.ndarray
+        Asymmetric anisotropy squared.
+    
+    Returns
+    -------
+    I_raman : np.ndarray
+        Raman intensity vector.
+    """
+
+    I_raman = np.zeros((len(frequencies), 3))
+
+    # Calculate absolute Raman intensity: Total, Perpendicular, and Parallel considering
+    # incident linear polarized radiation
+    for k in range(len(frequencies)):
+        I_total = 45 * a_sq[k] + 7 * gamma_sq[k] + 5 * delta_sq[k]
+        I_parallel = 45 * a_sq[k] + 4 * gamma_sq[k]
+        I_perpendicular = 3 * gamma_sq[k] + 5 * delta_sq[k]
+
+        I_raman[k] = np.array([I_total, I_perpendicular, I_parallel]).flatten() / 45
+
+    return I_raman
+
+
 def diff_cross_section(w, laser_wl=532, T=298):
     """
     Calculate the differential cross section of a Raman scattering process for

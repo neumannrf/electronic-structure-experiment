@@ -17,7 +17,8 @@ from modules.calculate_properties import (calculate_UnitCells,
                                           get_spg_class,
                                           calc_placzek_invariants,
                                           diff_cross_section,
-                                          lorentzian)
+                                          lorentzian,
+                                          calculate_raman_intensity)
 from modules.constants import factor2cm
 from modules.io_files import save_axsf, saveVibrationalChemicalJSON
 from phonopy import Phonopy
@@ -335,20 +336,13 @@ alpha = np.einsum('ad...,akd,a->k...',
                   phonon_eigendisplacements,
                   invAtomicMass['primitive']) * np.sqrt(cellVolume['primitive'])
 
+# Calculate the Placzek invariants
 a_sq, gamma_sq, delta_sq = calc_placzek_invariants(frequencies, alpha)
 
-# Create the Raman Intensities vector
-I_raman = np.zeros((len(frequencies), 3))
+# Calculate the Raman intensity
+I_raman = calculate_raman_intensity(frequencies, a_sq, gamma_sq, delta_sq)
 
-# Calculate absolute Raman intensity: Total, Perpendicular, and Parallel considering
-# incident linear polarized radiation
-for k in range(len(frequencies)):
-    I_total = 45 * a_sq[k] + 7 * gamma_sq[k] + 5 * delta_sq[k]
-    I_parallel = 45 * a_sq[k] + 4 * gamma_sq[k]
-    I_perpendicular = 3 * gamma_sq[k] + 5 * delta_sq[k]
-
-    I_raman[k] = np.array([I_total, I_perpendicular, I_parallel]).flatten() / 45
-
+# Calculate the Raman cross section factor
 cs = diff_cross_section(frequencies, arg.LaserWaveLength, arg.ExternalTemperature)
 
 # Create the Raman cross section vector
