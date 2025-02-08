@@ -320,6 +320,7 @@ for atom in IndAtoms['supercell']:
                                                                                       *fracPos['supercell'][atom]))
 
 print('Generating the symmetric shifts for the small displacement method...')
+print('{} shited structures will be generated.'.format(nAtoms['supercell'] * 6))
 
 for i in range(nAtoms['supercell']):
     for label, dirVec in [['x', [1, 0, 0]], ['y', [0, 1, 0]], ['z', [0, 0, 1]]]:
@@ -337,7 +338,7 @@ for i in range(nAtoms['supercell']):
             shifted_cartPos = deepcopy(cartPos['supercell'])
             shifted_cartPos[i] = shifted_cartPos[i] + arg.dR * dirVec
 
-            file_name = f'{arg.FrameworkName}_{i}_{sl}{label}.inp'
+            file_name = f'{arg.FrameworkName}_{i}_{sl}{label}'
 
             os.makedirs(f'{i}_{sl}{label}', exist_ok=True)
 

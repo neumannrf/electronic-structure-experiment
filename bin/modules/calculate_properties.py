@@ -828,7 +828,7 @@ def create_input_file(FrameworkName: str,
 
     generator = CP2KInputGenerator()
 
-    with open(os.path.join(output_folder, FrameworkName), "w") as fhandle:
+    with open(os.path.join(output_folder, FrameworkName + '.inp'), "w") as fhandle:
         for line in generator.line_iter(input_dict):
             fhandle.write(f"{line}\n")
 
