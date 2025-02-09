@@ -9,7 +9,7 @@ import argparse
 from ase import Atoms
 
 from modules.parse_cp2k import (getCellParameters, getStructures, getForces)
-
+from modules.constants import header
 from modules.io_files import save_axsf
 
 # Required parameters
@@ -32,6 +32,8 @@ parser.add_argument('--SaveHistory',
                     help='Save each step of the optimization as a cif file.')
 
 arg = parser.parse_args()
+
+print(header.format('Geometry Optimization Parser'))
 
 # Check if the optimization was successful.
 with open(os.path.join(arg.output_folder, 'simulation_Optimization.out'), 'r') as f:

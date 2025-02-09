@@ -8,6 +8,7 @@ import argparse
 import numpy as np
 
 from modules.calculate_properties import lorentzian
+from modules.constants import header
 from modules.parse_cp2k import get_vibrational_data
 from modules.io_files import (saveVibrationalVectors,
                               saveVibrationalChemicalJSON,
@@ -40,6 +41,8 @@ parser.add_argument('--SaveVibrations',
                     help='Save the vibrational modes as AXSF files.')
 
 arg = parser.parse_args()
+
+print(header.format('CP2K Vibrations Parser'))
 
 frequency, IR_intensity, RAMAN_intensity = get_vibrational_data('simulation_Vibrations.out')
 

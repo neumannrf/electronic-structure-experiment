@@ -15,3 +15,23 @@ Angst2Bohr = 1.889725989      # Angstrom to Bohr
 Bohr2Angst = 1 / Angst2Bohr   # Bohr to Angstrom
 factor2cm = 3739.4256800756   # Convert from phononpy to cm-1
 nm2cm = 1e-7                  # Convert from nm to cm-1
+
+header = r"""
+ *******************************************************************************
+ **                       ______     _____     ______                         **
+ **                      |  ____|   / ____|   |  ____|                        **
+ **                      | |__     | (___     | |__                           **
+ **                      |  __|     \___ \    |  __|                          **
+ **                      | |____    ____) |   | |____                         **
+ **                      |______|  |_____/    |______|                        **
+ **                                                                           **
+ **                     Electronic Structure Experiments                      **
+ **           A automated python tool to run DFT Simulations with CP2K        **
+ **                                                                           **
+ **      {:^65}    **
+ **                                                                           **
+ **          "Simulating molecules and materials, one electron at a time!"    **
+ **                                                                           **
+ ** Created by Felipe Lopes de Oliveira                                       **
+ *******************************************************************************
+"""

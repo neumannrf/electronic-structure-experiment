@@ -9,6 +9,7 @@ from copy import deepcopy
 
 import numpy as np
 from ase.cell import Cell
+from modules.constants import header
 from modules.calculate_properties import (calculate_UnitCells,
                                           create_input_file,
                                           get_AtomicPositions,
@@ -213,6 +214,8 @@ parser.add_argument('--UseScalapack',
 
 # Parse the arguments
 arg = parser.parse_args()
+
+print(header.format('Small Displacement input creation'))
 
 # Read the cif file and get the lattice parameters and atomic positions
 cif_filename = arg.FrameworkName + '.cif'

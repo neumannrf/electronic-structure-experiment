@@ -10,6 +10,7 @@ from cp2k_input_tools.generator import CP2KInputGenerator
 
 from modules.calculate_properties import get_CellParameters, get_AtomicPositions
 from modules.atom_data import BASIS_SET, PSEUDO_POTENTIALS
+from modules.constants import header
 
 # Required parameters
 parser = argparse.ArgumentParser(description='Create the CP2K simulation input.')
@@ -222,6 +223,8 @@ parser.add_argument('--NLUMO',
 
 # Parse the arguments
 arg = parser.parse_args()
+
+print(header.format('CP2K Input Creator'))
 
 # Read the cif file and get the lattice parameters and atomic positions
 cif_filename = os.path.join(arg.output_folder, arg.FrameworkName + '.cif')

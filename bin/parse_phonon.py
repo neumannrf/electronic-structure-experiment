@@ -19,7 +19,7 @@ from modules.calculate_properties import (calculate_UnitCells,
                                           diff_cross_section,
                                           calculate_raman_intensity,
                                           save_raman_data)
-from modules.constants import factor2cm
+from modules.constants import factor2cm, header
 from modules.io_files import save_shift_vecs, saveVibrationalChemicalJSON
 from phonopy import Phonopy
 from phonopy.structure.atoms import PhonopyAtoms
@@ -124,6 +124,8 @@ AtomicTypes, PosX, PosY, PosZ = get_AtomicPositions(cif_filename)
 
 fracPos = np.array([PosX, PosY, PosZ]).T
 aseCell = Cell.fromcellpar(CellParameters)
+
+print(header.format('Vibrationa Analysis and Raman Spectra Calculation'))
 
 if arg.UnitCells is None:
     arg.UnitCells = calculate_UnitCells(cif_filename, 6).replace(' ', ',')

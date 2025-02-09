@@ -7,7 +7,7 @@ import argparse
 import os
 
 from cp2k_input_tools.generator import CP2KInputGenerator
-
+from modules.constants import header
 from modules.calculate_properties import get_CellParameters, get_AtomicPositions
 from modules.atom_data import BASIS_SET, PSEUDO_POTENTIALS
 
@@ -261,6 +261,8 @@ parser.add_argument('--FixedAtoms',
 
 # Parse the arguments
 arg = parser.parse_args()
+
+print(header.format('Geometry Optimization Input creation'))
 
 # Read the cif file and get the lattice parameters and atomic positions
 cif_filename = os.path.join(arg.output_folder, arg.FrameworkName + '.cif')

@@ -4,6 +4,7 @@
 
 import argparse
 
+from modules.constants import header
 from modules.io_files import (readCIF, saveCIF,
                               readChemicalJSON, saveChemicalJSON,
                               readGJF, saveGJF,
@@ -45,6 +46,8 @@ parser.add_argument('--ChargeType',
 
 # Parse the arguments
 arg = parser.parse_args()
+
+print(header.format('Structure Converter'))
 
 # Dictionary containing the function to read files
 read_dict = {
