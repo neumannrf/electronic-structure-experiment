@@ -32,6 +32,5 @@ header = r"""
  **                                                                           **
  **          "Simulating molecules and materials, one electron at a time!"    **
  **                                                                           **
- ** Created by Felipe Lopes de Oliveira                                       **
  *******************************************************************************
 """
