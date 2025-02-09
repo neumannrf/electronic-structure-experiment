@@ -12,9 +12,8 @@ from textwrap import dedent
 from ase.cell import Cell
 
 from modules.atom_data import ATOMIC_NUMBER
-from modules.calculate_properties import (get_MoldenData,
-                                          get_vibrational_data,
-                                          get_CellParameters)
+from modules.calculate_properties import get_CellParameters
+from modules.parse_cp2k import get_MoldenData
 
 
 def readChemicalJSON(FrameworkName: str, OutputFolder: str = '.', **kwargs):
@@ -56,7 +55,11 @@ def readChemicalJSON(FrameworkName: str, OutputFolder: str = '.', **kwargs):
         CellParameters = None
 
     # Get the atomic labels
-    labels = ChemJSON['atoms']['elements']['type']
+    if 'type' in ChemJSON['atoms']['elements']:
+        labels = ChemJSON['atoms']['elements']['type']
+
+    elif 'number' in ChemJSON['atoms']['elements']:
+        labels = [gemmi.Element(i).name for i in ChemJSON['atoms']['elements']['number']]
 
     # Get the fractional coordinates
     if '3dFractional' in ChemJSON['atoms']['coords']:
@@ -81,6 +84,9 @@ def readChemicalJSON(FrameworkName: str, OutputFolder: str = '.', **kwargs):
         else:
             chargeType = list(ChemJSON['partialCharges'].keys())[0]
         charges = ChemJSON['partialCharges'][chargeType]
+    else:
+        charges = None
+        chargeType = None
 
     return CellParameters, labels, frac_x, frac_y, frac_z, charges, chargeType
 
@@ -218,7 +224,7 @@ def saveXSF(FrameworkName: str,
             frac_z: list[float],
             OutputFolder: str = '.',
             **kwargs):
-    '''
+    """
     Save the XSF file.
 
     Parameters
@@ -237,7 +243,7 @@ def saveXSF(FrameworkName: str,
         List of the atomic positions along the `c` vector.
     OutputFolder : str
         Path to the output folder. Default: `.`
-    '''
+    """
 
     aseCell = Cell.fromcellpar(CellParameters)
     # Get the cell parameters from cif file
@@ -340,12 +346,12 @@ def saveCIF(FrameworkName: str,
     cif_file = dedent(f"""\
 data_{FrameworkName}
 _chemical_name_common                  '{FrameworkName}'
-_cell_length_a                          {CellParameters[0]:10.5f}
-_cell_length_b                          {CellParameters[1]:10.5f}
-_cell_length_c                          {CellParameters[2]:10.5f}
-_cell_angle_alpha                       {CellParameters[3]:10.5f}
-_cell_angle_beta                        {CellParameters[4]:10.5f}
-_cell_angle_gamma                       {CellParameters[5]:10.5f}
+_cell_length_a                          {CellParameters[0]:15.9f}
+_cell_length_b                          {CellParameters[1]:15.9f}
+_cell_length_c                          {CellParameters[2]:15.9f}
+_cell_angle_alpha                       {CellParameters[3]:15.9f}
+_cell_angle_beta                        {CellParameters[4]:15.9f}
+_cell_angle_gamma                       {CellParameters[5]:15.9f}
 
 _symmetry_cell_setting          triclinic
 _symmetry_space_group_name_Hall 'P 1'
@@ -487,9 +493,9 @@ Title Card Required
 
 
 def saveVibrationalVectors(OutputFolder, Frameworkname):
-    '''
+    """
     Get the vibrational vectors from the CP2K output file.
-    '''
+    """
 
     atom_labels, atom_pos, vibrations, _, _, _, freq_list = get_MoldenData(OutputFolder, Frameworkname)
 
@@ -520,26 +526,130 @@ def saveVibrationalVectors(OutputFolder, Frameworkname):
     return None
 
 
-def saveVibrationalChemicalJSON(OutputFolder, Frameworkname):
+def save_axsf(output_folder,
+              FileName,
+              cellMatrix,
+              atomTypes,
+              cartPos,
+              shiftVecs):
+    """
+    Save the atomic positions and the shift vectors to an axsf file.
 
-    frequency, IR_intensity, RAMAN_intensity = get_vibrational_data(
-        os.path.join(OutputFolder, 'simulation_Vibrations.out')
-        )
+    Parameters
+    ----------
+    output_folder : str
+        Path to the output folder
+    FrameworkName : str
+        Name of the framework
+    cellMatrix : list
+        3 x 3 list of the cell matrix
+    atomTypes : list
+        N x 1 list of the atomic types
+    cartPos : list
+        N x 3 list of the atomic positions in cartesian coordinates
+    shiftVecs : list
+        M x N x 3 array of the shift vectors with M the number of modes and N the number of atoms
+    """
+    axsf_txt = ''
+    if len(shiftVecs) > 1:
+        axsf_txt += f'ANIMSTEPS {len(shiftVecs)}\n'
+    axsf_txt += 'CRYSTAL\n'
 
-    atom_labels, atom_pos, _, modes, eigenVectors, _, _ = get_MoldenData(OutputFolder,
-                                                                         Frameworkname)
+    for i in range(len(shiftVecs)):
+        axsf_txt += f'PRIMVEC {i + 1}\n'
+        for j in range(3):
+            axsf_txt += ' {:12.7f}   {:12.7f}   {:12.7f}\n'.format(*cellMatrix[i][j])
+        axsf_txt += f'PRIMCOORD {i + 1}\n'
+        axsf_txt += f'{len(atomTypes[i])} 1\n'
+        for j in range(len(atomTypes[i])):
+            axsf_txt += '{:3} {:12.7f} {:12.7f} {:12.7f} {:12.7f} {:12.7f} {:12.7f}\n'.format(atomTypes[i][j],
+                                                                                              *cartPos[i][j],
+                                                                                              *shiftVecs[i][j])
+
+    with open(os.path.join(output_folder, f'{FileName}.axsf'), 'w') as f:
+        f.write(axsf_txt)
+
+
+def save_shift_vecs(
+        output_folder,
+        FrameworkName,
+        frequencies,
+        shiftVecs,
+        cellMatrix,
+        atomTypes,
+        cartPos,
+        ir_labels) -> None:
+    """
+    Save the vibrational modes as AXSF files.
+
+    Parameters
+    ----------
+    output_folder : str
+        Path to the output folder
+    FrameworkName : str
+        Name of the framework
+    frequencies : np.ndarray
+        Frequencies of the vibrational modes.
+    shiftVecs : np.ndarray
+        Shift vectors of the vibrational modes.
+    cellMatrix : list
+        3 x 3 list of the cell matrix
+    atomTypes : list
+        N x 1 list of the atomic types
+    cartPos : list
+        N x 3 list of the atomic positions in cartesian coordinates
+    ir_labels : list
+        N x 1 list of the IR labels
+    """
+
+    os.makedirs(os.path.join(output_folder, 'VIBRATION_FILES'), exist_ok=True)
+
+    # Save independend files for each mode
+    for i, freq in enumerate(frequencies):
+        save_axsf(os.path.join(output_folder, 'VIBRATION_FILES'),
+                  f'{FrameworkName}_{i}_{ir_labels[i]}_{freq}',
+                  [cellMatrix['primitive']],
+                  [atomTypes['primitive']],
+                  [cartPos['primitive']],
+                  [shiftVecs[i]])
+
+    # Save all modes in a single file
+    save_axsf(output_folder,
+              f'{FrameworkName}_all',
+              [cellMatrix['primitive'] for _ in range(len(shiftVecs))],
+              [atomTypes['primitive'] for _ in range(len(shiftVecs))],
+              [cartPos['primitive'] for _ in range(len(shiftVecs))],
+              shiftVecs)
+
+
+def saveVibrationalChemicalJSON(OutputFolder: str,
+                                Frameworkname: str,
+                                CellParameters: list[float],
+                                atomTypes: list[str],
+                                cartPos: list[list[float]],
+                                eigenVectors: list[list[float]],
+                                modes: list[str],
+                                freqList: list[float],
+                                IR_intensity: list[float],
+                                RAMAN_intensity: list[float]):
 
     # Convert atom_labels to atom_number
-    atom_number = [gemmi.Element(atom).atomic_number for atom in atom_labels]
+    atom_number = [gemmi.Element(atom).atomic_number for atom in atomTypes]
 
     # Flatten the atom_pos list
-    atom_pos = [i for sublist in atom_pos for i in sublist]
+    cartPos = [i for sublist in cartPos for i in sublist]
 
-    # Get the cell parameters from cif file
-    CellParameters = get_CellParameters(Frameworkname + '.cif')
     CellMatrix = Cell.fromcellpar(CellParameters).flatten().tolist()
 
-    formula = ' '.join([f'{atom}{atom_labels.count(atom)}' for atom in set(atom_labels)])
+    formula = ' '.join([f'{atom}{atomTypes.count(atom)}' for atom in set(atomTypes)])
+
+    # Convert variables to lists
+    if not isinstance(freqList, list):
+        freqList = freqList.tolist()
+    if not isinstance(IR_intensity, list):
+        IR_intensity = IR_intensity.tolist()
+    if not isinstance(RAMAN_intensity, list):
+        RAMAN_intensity = RAMAN_intensity.tolist()
 
     ChemJSON = {
         "chemicalJson": 1,
@@ -556,16 +666,16 @@ def saveVibrationalChemicalJSON(OutputFolder, Frameworkname):
         },
         "atoms": {
             "elements": {
-                "type": atom_labels,
+                "type": atomTypes,
                 "number": atom_number
                 },
             "coords": {
-                "3d": atom_pos
+                "3d": cartPos
                 }
         },
         'vibrations': {
             'eigenVectors': eigenVectors,
-            'frequencies': list(frequency),
+            'frequencies': list(freqList),
             'intensities': list(IR_intensity),
             'ramanIntensities': list(RAMAN_intensity),
             'modes': modes

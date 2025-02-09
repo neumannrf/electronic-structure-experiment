@@ -130,7 +130,7 @@ parser.add_argument('--DispersionCorrection',
                     default='DFTD3',
                     action='store',
                     required=False,
-                    choices=['DFTD3', 'DFTD3(BJ)'],
+                    choices=['None', 'DFTD2', 'DFTD3', 'DFTD3(BJ)'],
                     metavar='DISPERSION_CORRECTION',
                     help='Dispersion correction used to calculate the total energy')
 parser.add_argument('--BasisSet',
@@ -138,7 +138,7 @@ parser.add_argument('--BasisSet',
                     default='DZVP',
                     action='store',
                     required=False,
-                    choices=['DZVP', 'TZV2P'],
+                    choices=['SZV', 'DZVP', 'TZVP', 'TZV2P'],
                     metavar='BASIS_SET',
                     help='Gaussian basis set type.')
 parser.add_argument('--SCFConvergence',
@@ -200,7 +200,7 @@ Coord_Dict = {
 
 Kind_List = []
 
-for i, specie in enumerate(set(AtomicTypes)):
+for specie in set(AtomicTypes):
     Kind_List.append({
         "_": specie,
         'element': specie,
@@ -272,18 +272,7 @@ if arg.Functional == 'XTB':
 
 if arg.Functional == 'PBE':
     Force_Eval_Dict["+dft"]['+xc'] = {
-                    "+xc_functional": {
-                        "_": arg.Functional
-                    },
-                    "+vdw_potential": {
-                        "potential_type": "pair_potential",
-                        "+pair_potential": {
-                            "type": arg.DispersionCorrection,
-                            "reference_functional": arg.Functional,
-                            "r_cutoff": 16,
-                            "parameter_file_name": f"{arg.CP2KDataDir}/dftd3.dat"
-                            }
-                        }
+                    "+xc_functional": {"_": arg.Functional}
                     }
     Force_Eval_Dict["+dft"]['+mgrid'] = {
         'cutoff': arg.PWCutoff,
@@ -299,6 +288,17 @@ if arg.Functional == 'PBE':
     Force_Eval_Dict["+dft"]["potential_file_name"] = f"{arg.CP2KDataDir}/GTH_POTENTIALS"
 
     Force_Eval_Dict["+subsys"]["+kind"] = Kind_List
+
+if arg.DispersionCorrection != 'None' and arg.Functional == 'PBE':
+    Force_Eval_Dict["+dft"]['+xc']["+vdw_potential"] = {
+                        "potential_type": "pair_potential",
+                        "+pair_potential": {
+                            "type": arg.DispersionCorrection,
+                            "reference_functional": arg.Functional,
+                            "r_cutoff": 16,
+                            "parameter_file_name": f"{arg.CP2KDataDir}/dftd3.dat"
+                            }
+                        }
 
 if arg.UseOT:
     Force_Eval_Dict["+dft"]['+scf']["+ot"] = {"minimizer": "DIIS",

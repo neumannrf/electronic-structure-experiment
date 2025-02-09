@@ -9,6 +9,7 @@ from textwrap import dedent
 
 from modules.calculate_properties import get_CellParameters, get_AtomicPositions
 from modules.atom_data import ATOMIC_NUMBER, CORE_NUM
+from modules.constants import header
 
 # Required parameters
 parser = argparse.ArgumentParser(description='Create the Chargemol simulation input.')
@@ -41,6 +42,8 @@ parser.add_argument('--DataFolder',
                     help='Directory containing the atomic density files for Chargemol.')
 
 arg = parser.parse_args()
+
+print(header.format('Chargemol Input Creator'))
 
 # Calculate self-consistent properties
 cif_filename = os.path.join(arg.output_folder, arg.FrameworkName + '.cif')

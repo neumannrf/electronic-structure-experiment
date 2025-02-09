@@ -8,7 +8,8 @@ import argparse
 
 from ase import Atoms
 
-from modules.parse_cp2k import (getCellParameters, getStructures, getForces)
+from modules.parse_cp2k import (getCellParameters, getStructures, getEnergies, getForces, getStress)
+from modules.io_files import saveCIF
 from modules.constants import header
 from modules.io_files import save_axsf
 
@@ -33,57 +34,26 @@ parser.add_argument('--SaveHistory',
 
 arg = parser.parse_args()
 
-print(header.format('Geometry Optimization Parser'))
+print(header.format('Molecular Dynamics Parser'))
 
 # Check if the optimization was successful.
-with open(os.path.join(arg.output_folder, 'simulation_Optimization.out'), 'r') as f:
+with open(os.path.join(arg.output_folder, 'simulation_MolecularDynamics.out'), 'r') as f:
     lines = f.readlines()
-
-optimized = False
-for line in lines:
-    if 'GEOMETRY OPTIMIZATION COMPLETED' in line:
-        optimized = True
-        break
-
-lbfgs_error = False
-for line in lines:
-    if 'Specific L-BFGS convergence criteria' in line:
-        lbfgs_error = True
-        break
-
-if not optimized and lbfgs_error:
-    print('Error on the L-BFGS algorithm! Exiting...')
-    print('Saving last structure.')
-
-    CellParametersList = getCellParameters(arg.output_folder, arg.FrameworkName)
-    StructureList = getStructures(arg.output_folder, arg.FrameworkName)
-
-    tempStructure = Atoms(StructureList[-1][0],
-                          cell=CellParametersList[-1],
-                          pbc=(1, 1, 1),
-                          positions=StructureList[-1][1].T)
-
-    tempStructure.write(os.path.join(arg.output_folder, arg.FrameworkName + '_error' + '.cif'))
-
-    exit(1)
-
-
-if not optimized and not lbfgs_error:
-    print('Optimization failed! Exiting...')
-    exit(1)
 
 CellMatrixList, CellParametersList = getCellParameters(arg.output_folder, arg.FrameworkName)
 atomLabelList, atomPosList = getStructures(arg.output_folder, arg.FrameworkName)
 ForcesList = getForces(arg.output_folder, arg.FrameworkName)
+EnergyList = getEnergies(arg.output_folder, arg.FrameworkName)
+StressList = getStress(arg.output_folder, arg.FrameworkName)
 
 # Save the optimization history
 if arg.SaveHistory:
 
     # Save the axsf file with the optimization history
-    save_axsf(arg.output_folder, arg.FrameworkName, CellMatrixList, atomLabelList[1:], atomPosList[1:], ForcesList[1:])
+    save_axsf(arg.output_folder, arg.FrameworkName, CellMatrixList, atomLabelList, atomPosList, ForcesList)
 
     # Create a directory to store the optimization history as cif files
-    save_path = os.path.join(arg.output_folder, 'OptimizationHistory')
+    save_path = os.path.join(arg.output_folder, 'MolecularDynamicsHistory')
     os.makedirs(save_path, exist_ok=True)
     for i in range(len(CellParametersList)):
         tempStructure = Atoms(atomLabelList[i],
@@ -93,15 +63,26 @@ if arg.SaveHistory:
 
         print('Saving structure ' + str(i + 1) + ' of ' + str(len(CellParametersList)))
 
-        tempStructure.write(os.path.join(save_path, arg.FrameworkName + '_Optimization_' + str(i + 1) + '.cif'))
-
+        saveCIF(OutputFolder=save_path,
+                FrameworkName=arg.FrameworkName + '_MD_' + str(i + 1),
+                CellParameters=CellParametersList[i],
+                labels=atomLabelList[i],
+                frac_x=tempStructure.get_scaled_positions()[:, 0],
+                frac_y=tempStructure.get_scaled_positions()[:, 1],
+                frac_z=tempStructure.get_scaled_positions()[:, 2])
 
 # Write the final structure to file
-tempStructure = Atoms(atomLabelList[-1],
+lastStructure = Atoms(atomLabelList[-1],
                       cell=CellParametersList[-1],
                       pbc=(1, 1, 1),
                       positions=atomPosList[-1])
 
 print('Saving optimized structure.')
 
-tempStructure.write(os.path.join(arg.output_folder, arg.FrameworkName + '_optimized' + '.cif'))
+saveCIF(OutputFolder=arg.output_folder,
+        FrameworkName=arg.FrameworkName + '_last',
+        CellParameters=CellParametersList[-1],
+        labels=atomLabelList[-1],
+        frac_x=lastStructure.get_scaled_positions()[:, 0],
+        frac_y=lastStructure.get_scaled_positions()[:, 1],
+        frac_z=lastStructure.get_scaled_positions()[:, 2])

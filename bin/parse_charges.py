@@ -11,6 +11,7 @@ from modules.calculate_properties import (get_AtomicPositions,
                                           get_CM5AtomicCharges,
                                           get_DDECAtomicCharges)
 from modules.io_files import saveCIF
+from modules.constants import header
 
 # Required parameters
 parser = argparse.ArgumentParser(description='Create the Chargemol simulation input.')
@@ -31,6 +32,8 @@ parser.add_argument('--CM5',
                     help='Get the CM5 charges calculated by Chargemol.')
 
 arg = parser.parse_args()
+
+print(header.format('Partial Charges Parser'))
 
 # Check if the optimization was successful.
 with open(os.path.join(arg.output_folder, 'simulation_SCF.out'), 'r') as f:

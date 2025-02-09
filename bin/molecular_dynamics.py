@@ -7,6 +7,7 @@ import argparse
 import os
 
 from cp2k_input_tools.generator import CP2KInputGenerator
+
 from modules.constants import header
 from modules.calculate_properties import get_CellParameters, get_AtomicPositions
 from modules.atom_data import BASIS_SET, PSEUDO_POTENTIALS
@@ -26,6 +27,13 @@ parser.add_argument('--FrameworkName',
                     help='Name of the CIF file describing the nanoporous material structure.')
 
 # Optional parameters
+parser.add_argument('--CP2KDataDir',
+                    type=str,
+                    default=os.environ.get("CP2K_DATA_DIR"),
+                    action='store',
+                    required=False,
+                    metavar='CP2K_DATA_DIR',
+                    help='Directory containing the Basis set and pseudopotential files.')
 parser.add_argument('--Charge',
                     type=int,
                     default=0,
@@ -40,18 +48,96 @@ parser.add_argument('--Multipliticy',
                     required=False,
                     metavar='MULTIPLICITY',
                     help='Total multiplicity of the unit cell.')
-parser.add_argument('--OptimizationType',
-                    type=str,
-                    default='cell_opt',
+parser.add_argument('--EPSDefault',
+                    type=float,
+                    default=1e-8,
                     action='store',
                     required=False,
-                    choices=['cell_opt', 'geo_opt'],
-                    metavar='OPTIMIZATION_TYPE',
-                    help='Type of optimization to perform. Cell + atoms = cell_opt, only atoms = geo_opt.')
+                    metavar='EPS_DEFAULT',
+                    help='Default value for the electronic density convergence threshold.')
+parser.add_argument('--PWCutoff',
+                    type=float,
+                    default=600,
+                    action='store',
+                    required=False,
+                    metavar='PW_CUTOFF',
+                    help='Plane wave cutoff energy in Ry.')
+parser.add_argument('--NGrid',
+                    type=int,
+                    default=5,
+                    action='store',
+                    required=False,
+                    metavar='N_GRID',
+                    help='Number of grids for the multigrid method.')
+parser.add_argument('--RelativeCutOff',
+                    type=float,
+                    default=60,
+                    action='store',
+                    required=False,
+                    metavar='RELATIVE_CUTOFF',
+                    help='Relative cutoff for the multigrid method.')
+parser.add_argument('--Functional',
+                    type=str,
+                    default='PBE',
+                    action='store',
+                    required=False,
+                    choices=['PBE', 'XTB'],
+                    metavar='FUNCTIONAL',
+                    help='Functional used to calculate the total energy.')
+parser.add_argument('--DispersionCorrection',
+                    type=str,
+                    default='DFTD3',
+                    action='store',
+                    required=False,
+                    choices=['None', 'DFTD2', 'DFTD3', 'DFTD3(BJ)'],
+                    metavar='DISPERSION_CORRECTION',
+                    help='Dispersion correction used to calculate the total energy')
+parser.add_argument('--BasisSet',
+                    type=str,
+                    default='DZVP',
+                    action='store',
+                    required=False,
+                    choices=['SZV', 'DZVP', 'TZVP', 'TZV2P'],
+                    metavar='BASIS_SET',
+                    help='Gaussian basis set type.')
+parser.add_argument('--MaxSCFycles',
+                    type=int,
+                    default=50,
+                    action='store',
+                    required=False,
+                    metavar='MAX_SCF_CYCLES',
+                    help='Maximum number of SCF cycles.')
+parser.add_argument('--MaxOuterSCFycles',
+                    type=int,
+                    default=10,
+                    action='store',
+                    required=False,
+                    metavar='MAX_OUTER_SCF_CYCLES',
+                    help='Maximum number of Outer SCF cycles for OT simulations.')
+parser.add_argument('--SCFGuess',
+                    type=str,
+                    default='atomic',
+                    action='store',
+                    required=False,
+                    choices=['atomic',
+                             'restart',
+                             'core',
+                             'random',
+                             'sparse',
+                             'mopac'],
+                    metavar='SCF_GUESS',
+                    help='Initial guess for the SCF cycle.')
 parser.add_argument('--UseOT',
                     action='store_true',
                     required=False,
-                    help='Use the Orbital Transformation (OT) method.')
+                    help='Use the OT method for the SCF cycle.')
+parser.add_argument('--SCFConvergence',
+                    type=float,
+                    default=1e-7,
+                    action='store',
+                    required=False,
+                    metavar='SCF_CONVERGENCE',
+                    help='SCF convergence threshold.')
 parser.add_argument('--UseSmearing',
                     action='store_true',
                     required=False,
@@ -104,165 +190,58 @@ parser.add_argument('--MixingAlpha',
                     required=False,
                     metavar='MIXING_ALPHA',
                     help='Mixing parameter for the density matrix.')
-parser.add_argument('--MaxSCFycles',
-                    type=int,
-                    default=25,
-                    action='store',
-                    required=False,
-                    metavar='MAX_SCF_CYCLES',
-                    help='Maximum number of SCF cycles.')
-parser.add_argument('--MaxOuterSCFycles',
-                    type=int,
-                    default=5,
-                    action='store',
-                    required=False,
-                    metavar='MAX_OUTER_SCF_CYCLES',
-                    help='Maximum number of Outer SCF cycles for OT simulations.')
-parser.add_argument('--EPSDefault',
-                    type=float,
-                    default=1e-8,
-                    action='store',
-                    required=False,
-                    metavar='EPS_DEFAULT',
-                    help='Default value for the electronic density convergence threshold.')
-parser.add_argument('--PWCutoff',
-                    type=float,
-                    default=500,
-                    action='store',
-                    required=False,
-                    metavar='PW_CUTOFF',
-                    help='Plane wave cutoff energy in Ry.')
-parser.add_argument('--NGrid',
-                    type=int,
-                    default=5,
-                    action='store',
-                    required=False,
-                    metavar='N_GRID',
-                    help='Number of grids for the multigrid method.')
-parser.add_argument('--RelativeCutOff',
-                    type=float,
-                    default=60,
-                    action='store',
-                    required=False,
-                    metavar='RELATIVE_CUTOFF',
-                    help='Relative cutoff for the multigrid method.')
-parser.add_argument('--Functional',
-                    type=str,
-                    default='PBE',
-                    action='store',
-                    required=False,
-                    choices=['PBE', 'XTB'],
-                    metavar='FUNCTIONAL',
-                    help='Functional used to calculate the total energy.')
-parser.add_argument('--DispersionCorrection',
-                    type=str,
-                    default='DFTD3',
-                    action='store',
-                    required=False,
-                    choices=['None', 'DFTD2', 'DFTD3', 'DFTD3(BJ)'],
-                    metavar='DISPERSION_CORRECTION',
-                    help='Dispersion correction used to calculate the total energy')
-parser.add_argument('--BasisSet',
-                    type=str,
-                    default='DZVP',
-                    action='store',
-                    required=False,
-                    choices=['SZV', 'DZVP', 'TZVP', 'TZV2P'],
-                    metavar='BASIS_SET',
-                    help='Gaussian basis set type.')
-parser.add_argument('--SCFGuess',
-                    type=str,
-                    default='atomic',
-                    action='store',
-                    required=False,
-                    choices=['atomic',
-                             'restart',
-                             'core',
-                             'random',
-                             'sparse',
-                             'mopac'],
-                    metavar='SCF_GUESS',
-                    help='Initial guess for the SCF cycle.')
-parser.add_argument('--SCFConvergence',
-                    type=float,
-                    default=1e-8,
-                    action='store',
-                    required=False,
-                    metavar='SCF_CONVERGENCE',
-                    help='SCF convergence threshold.')
-parser.add_argument('--CP2KDataDir',
-                    type=str,
-                    default=os.environ.get("CP2K_DATA_DIR"),
-                    action='store',
-                    required=False,
-                    metavar='CP2K_DATA_DIR',
-                    help='Directory containing the Basis set and pseudopotential files.')
-parser.add_argument('--KeepSymmetry',
-                    action='store_true',
-                    required=False,
-                    help='Keep the initial symmetry of the unit cell.')
 parser.add_argument('--UseScalapack',
                     action='store_true',
                     required=False,
                     help='Use Scalapack as preferred diagonalization library')
-parser.add_argument('--Restart',
-                    action='store_true',
-                    required=False,
-                    help='Restart the simulation from the last saved configuration.')
-parser.add_argument('--MaxIterations',
-                    type=int,
-                    default=500,
-                    action='store',
-                    required=False,
-                    metavar='MAX_ITER',
-                    help='Maximum number of optimization steps.')
-parser.add_argument('--TrustRadius',
-                    type=float,
-                    default=0.25,
-                    action='store',
-                    required=False,
-                    metavar='TRUST_RADIUS',
-                    help='Trust radius for the optimization.')
-parser.add_argument('--MaxDR',
-                    type=float,
-                    default=3e-2,
-                    action='store',
-                    required=False,
-                    metavar='MAX_DR',
-                    help='Convergence criterion for the maximum geometry change.')
-parser.add_argument('--RMSDR',
-                    type=float,
-                    default=1.5e-2,
-                    action='store',
-                    required=False,
-                    metavar='RMS_DR',
-                    help='Convergence criterion for the root mean square (RMS) geometry change.')
-parser.add_argument('--MaxForce',
-                    type=float,
-                    default=1e-3,
-                    action='store',
-                    required=False,
-                    metavar='MAX_DR',
-                    help='Convergence criterion for the maximum force component of the current configuration.')
-parser.add_argument('--RMSForce',
-                    type=float,
-                    default=7e-4,
-                    action='store',
-                    required=False,
-                    metavar='RMS_DR',
-                    help='Convergence criterion for the root mean square (RMS) force of the current configuration')
 parser.add_argument('--FixedAtoms',
                     type=str,
                     default=None,
                     action='store',
                     required=False,
                     metavar='FIXED_ATOMS',
-                    help='List of atoms to be kept fixed during the optimization. Eg. 1..10,20,30..40')
+                    help='List of atoms as a string to be kept fixed during the optimization. Eg. 1..10,20,30..40')
+parser.add_argument('--Ensemble',
+                    type=str,
+                    default='NPT_F',
+                    action='store',
+                    required=False,
+                    choices=['NVE', 'NVT', 'NPT_I', 'NPT_F'],
+                    metavar='ENSEMBLE',
+                    help='Ensemble used for the molecular dynamics simulation.')
+parser.add_argument('--Temperature',
+                    type=float,
+                    default=300.0,
+                    action='store',
+                    required=False,
+                    metavar='TEMPERATURE',
+                    help='Temperature in Kelvin used for the molecular dynamics simulation.')
+parser.add_argument('--TimeStep',
+                    type=float,
+                    default=1.0,
+                    action='store',
+                    required=False,
+                    metavar='TIME_STEP',
+                    help='Time step in fentoseconds used for the molecular dynamics simulation.')
+parser.add_argument('--NumberOfSteps',
+                    type=int,
+                    default=100,
+                    action='store',
+                    required=False,
+                    metavar='NUMBER_OF_STEPS',
+                    help='Number of steps used for the molecular dynamics simulation.')
+parser.add_argument('--Pressure',
+                    type=float,
+                    default=1.0,
+                    action='store',
+                    required=False,
+                    metavar='PRESSURE',
+                    help='Pressure in bar used for the molecular dynamics simulation on NPT_I and NPT_F ensemble.')
 
 # Parse the arguments
 arg = parser.parse_args()
 
-print(header.format('Geometry Optimization Input creation'))
+print(header.format('Molecular Dynamics input creator'))
 
 # Read the cif file and get the lattice parameters and atomic positions
 cif_filename = os.path.join(arg.output_folder, arg.FrameworkName + '.cif')
@@ -291,43 +270,41 @@ Cell_Dict = {'abc': [CellParameters[0], CellParameters[1], CellParameters[2]],
 
 Global_Dict = {
     "project_name": arg.FrameworkName,
-    "run_type": arg.OptimizationType,
+    "run_type": "md",
 }
 
 if arg.UseScalapack:
     Global_Dict["preferred_diag_library"] = "scalapack"
 
 Force_Eval_Dict = {
-            "+dft": {
-                "+qs": {
-                    'eps_default': arg.EPSDefault,
-                    },
-                "+print": {
-                    "+hirshfeld": {"_": "OFF"},
-                    "+lowdin": {"_": "OFF"},
-                    "+mulliken": {"_": "OFF"},
-                },
-                "+scf": {
-                    "scf_guess": arg.SCFGuess,
-                    "max_scf": arg.MaxSCFycles,
-                    "eps_scf": arg.SCFConvergence,
-                    "+mixing": {"method": arg.MixingMethod, "alpha": arg.MixingAlpha},
-                    "+outer_scf": {"max_scf": arg.MaxOuterSCFycles, "eps_scf": arg.SCFConvergence}
-                },
-                "charge": arg.Charge,
-                "multiplicity": arg.Multipliticy
-            },
+        "+dft": {
+            "+qs": {'eps_default': arg.EPSDefault},
             "+print": {
-                "+forces": {"filename": "forces", "_": "ON"},
-                "+stress_tensor": {"_": "ON"}
+                "+hirshfeld": {"_": "OFF"},
+                "+lowdin": {"_": "OFF"},
+                "+mulliken": {"_": "OFF"},
             },
-            "+subsys": {
-                "+cell": Cell_Dict,
-                "+coord": Coord_Dict,
-                "+print": {'+symmetry': {'symmetry_elements': True}},
+            "+scf": {
+                "scf_guess": arg.SCFGuess,
+                "max_scf": arg.MaxSCFycles,
+                "eps_scf": arg.SCFConvergence,
+                "+mixing": {"method": arg.MixingMethod, "alpha": arg.MixingAlpha},
+                "+outer_scf": {"max_scf": arg.MaxOuterSCFycles, "eps_scf": arg.SCFConvergence}
             },
-            "stress_tensor": "analytical"
-        }
+            "charge": arg.Charge,
+            "multiplicity": arg.Multipliticy,
+        },
+        "+print": {
+            "+forces": {"filename": "forces", "_": "ON"},
+            "+stress_tensor": {"_": "ON"}
+        },
+        "+subsys": {
+            "+cell": Cell_Dict,
+            "+coord": Coord_Dict,
+            "+kind": Kind_List
+        },
+        "stress_tensor": "analytical"
+    }
 
 if arg.Functional == 'XTB':
     Force_Eval_Dict['+dft']['+qs'] = {
@@ -386,6 +363,7 @@ if arg.UseSmearing:
         }
     Force_Eval_Dict["+dft"]['+scf']['added_mos'] = arg.AddedMOs
 
+
 motion_dict = {
     "+print": [
         {
@@ -400,50 +378,37 @@ motion_dict = {
     ]
 }
 
+motion_dict['+md'] = {
+            "ensemble": arg.Ensemble,
+            "temperature": arg.Temperature,
+            "timestep": arg.TimeStep,
+            "steps": arg.NumberOfSteps,
+            "+thermostat": {
+                "type": 'CSVR',
+                "+csvr": {'timecon': 0.1},
+            }
+        }
+
+if arg.Ensemble == 'NPT_F':
+    motion_dict['+md']["+barostat"] = {
+                "pressure": arg.Pressure,
+                "timecon": 1000
+            }
+
 if arg.FixedAtoms is not None:
     motion_dict['+fixed_atoms'] = {
         "components_to_fix": "xyz",
         "list": arg.FixedAtoms
     }
 
-if arg.OptimizationType == 'cell_opt':
-    motion_dict['+cell_opt'] = {
-        "+lbfgs": {"trust_radius": arg.TrustRadius},
-        "optimizer": "lbfgs",
-        "max_iter": arg.MaxIterations,
-        "max_dr": arg.MaxDR,
-        "max_force": arg.MaxForce,
-        "rms_dr": arg.RMSDR,
-        "rms_force": arg.RMSForce
-    }
-
-    if arg.KeepSymmetry:
-        motion_dict['+cell_opt']['keep_symmetry'] = True
-        motion_dict['+cell_opt']['keep_space_group'] = True
-        motion_dict['+cell_opt']['keep_angles'] = True
-
-if arg.OptimizationType == 'geo_opt':
-    motion_dict['+geo_opt'] = {
-        "+bfgs": {"trust_radius": arg.TrustRadius},
-        "max_iter": arg.MaxIterations,
-        "max_dr": arg.MaxDR,
-        "max_force": arg.MaxForce,
-        "rms_dr": arg.RMSDR,
-        "rms_force": arg.RMSForce
-    }
-
 input_dict = {
     "+global": Global_Dict,
     "+force_eval": [Force_Eval_Dict],
-    "+motion": motion_dict}
-
-if arg.Restart:
-    input_dict['+ext_restart'] = {
-        "restart_file_name": f"{arg.FrameworkName}-1.restart"
+    "+motion": motion_dict
     }
 
 generator = CP2KInputGenerator()
 
-with open("simulation_Optimization.inp", "w") as fhandle:
+with open("simulation_MolecularDynamics.inp", "w") as fhandle:
     for line in generator.line_iter(input_dict):
         fhandle.write(f"{line}\n")

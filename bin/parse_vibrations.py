@@ -7,8 +7,13 @@ import os
 import argparse
 import numpy as np
 
-from modules.calculate_properties import get_vibrational_data, lorentzian
-from modules.io_files import saveVibrationalVectors, saveVibrationalChemicalJSON
+from modules.calculate_properties import lorentzian
+from modules.constants import header
+from modules.parse_cp2k import get_vibrational_data
+from modules.io_files import (saveVibrationalVectors,
+                              saveVibrationalChemicalJSON,
+                              get_MoldenData,
+                              get_CellParameters)
 
 # Required parameters
 parser = argparse.ArgumentParser(description='Create the Chargemol simulation input.')
@@ -36,6 +41,8 @@ parser.add_argument('--SaveVibrations',
                     help='Save the vibrational modes as AXSF files.')
 
 arg = parser.parse_args()
+
+print(header.format('CP2K Vibrations Parser'))
 
 frequency, IR_intensity, RAMAN_intensity = get_vibrational_data('simulation_Vibrations.out')
 
@@ -65,8 +72,24 @@ np.savetxt(os.path.join(arg.output_folder, f'{arg.FrameworkName}_RAMAN_IR_Curve.
            header='Frequency (cm-1), IR Intensity (km/mol), Raman Intensity (A2/amu)',
            delimiter=',')
 
+
+# Get the cell parameters from cif file
+CellParameters = get_CellParameters(arg.Frameworkname + '.cif')
+
+atom_labels, atom_pos, _, modes, eigenVectors, _, _ = get_MoldenData(arg.OutputFolder,
+                                                                     arg.Frameworkname)
+
 # Save the vibrations as cjson file
-saveVibrationalChemicalJSON(arg.output_folder, arg.FrameworkName)
+saveVibrationalChemicalJSON(arg.output_folder,
+                            arg.FrameworkName,
+                            CellParameters,
+                            atom_labels,
+                            atom_pos,
+                            modes,
+                            eigenVectors,
+                            frequency,
+                            IR_intensity,
+                            RAMAN_intensity)
 
 # Save the vibrational modes as AXSF files
 if arg.SaveVibrations:
